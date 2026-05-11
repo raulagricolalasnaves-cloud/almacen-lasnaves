@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Las Naves Agrícola — Control de Almacén</title>
+<link rel="icon" href="public/logo.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f2a5c">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="src/styles/main.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg"><div class="login-orb orb1"></div><div class="login-orb orb2"></div></div>
+  <div class="login-card">
+    <div class="login-logo-wrap"><img src="public/logo.png" alt="Las Naves Agrícola" class="login-logo"></div>
+    <h1 class="login-title">Control de Almacén</h1>
+    <p class="login-sub">Acceso seguro · Las Naves Agrícola</p>
+    <div id="offline-banner" class="offline-banner hidden">⚠ Sin conexión — modo offline activo</div>
+    <div class="form-group"><label>Correo electrónico</label><input type="email" id="l-email" class="input" placeholder="usuario@lasnaves.com" autocomplete="email"></div>
+    <div class="form-group"><label>Contraseña</label><input type="password" id="l-pass" class="input" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()"><span id="login-label">Iniciar sesión</span></button>
+    <p class="login-hint" id="login-error"></p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="screen-app" class="screen hidden">
+  <header class="topbar">
+    <div class="topbar-left">
+      <img src="public/logo.png" alt="Logo" class="topbar-logo">
+      <div><div class="topbar-title">Las Naves Agrícola</div><div class="topbar-sub">Almacén de Químicos</div></div>
+    </div>
+    <div class="topbar-right">
+      <div id="offline-dot" class="offline-dot hidden">●</div>
+      <div class="user-chip">
+        <div class="user-avatar" id="topbar-avatar">--</div>
+        <div class="user-info"><div class="user-name" id="topbar-name">—</div><div class="user-role" id="topbar-role">—</div></div>
+      </div>
+      <button class="btn-icon" onclick="doLogout()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="goTo('dashboard',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
+    <button class="nav-btn" onclick="goTo('scanner',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Escanear</button>
+    <button class="nav-btn" onclick="goTo('inventario',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</button>
+    <button class="nav-btn" onclick="goTo('movimientos',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Movimientos</button>
+    <button class="nav-btn" onclick="goTo('reportes',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>Reportes</button>
+    <button class="nav-btn" onclick="goTo('graficas',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Gráficas</button>
+    <button class="nav-btn" onclick="goTo('pedidos',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Pedidos</button>
+    <button class="nav-btn" onclick="goTo('usuarios',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</button>
+    <button class="nav-btn" onclick="goTo('auditoria',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoría</button>
+    <button class="nav-btn" onclick="goTo('alertas',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alertas<span id="alert-count" class="alert-dot hidden">0</span></button>
+  </nav>
+
+  <!-- Modal visor de foto -->
+  <div id="foto-modal" class="foto-modal hidden" onclick="cerrarFotoModal()">
+    <button class="foto-modal-close" onclick="cerrarFotoModal()">✕</button>
+    <img id="foto-modal-img" src="" alt="Evidencia">
+  </div>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab active">
+      <div class="page-header"><div class="page-title">Dashboard</div><div class="page-date" id="dash-date"></div></div>
+      <div class="metrics">
+        <div class="metric-card"><div class="metric-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div class="metric-body"><div class="metric-val" id="m-prod">—</div><div class="metric-label">Productos</div></div></div>
+        <div class="metric-card"><div class="metric-icon red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="metric-body"><div class="metric-val" id="m-bajo">—</div><div class="metric-label">Stock bajo</div></div></div>
+        <div class="metric-card"><div class="metric-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="metric-body"><div class="metric-val" id="m-cad">—</div><div class="metric-label">Por caducar</div></div></div>
+        <div class="metric-card"><div class="metric-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="metric-body"><div class="metric-val" id="m-ped">—</div><div class="metric-label">Pedidos activos</div></div></div>
+      </div>
+      <div id="sync-pending" class="sync-banner hidden">⚠ Tienes <span id="sync-count">0</span> movimientos pendientes. <button class="btn btn-sm" onclick="sincronizarOffline()">Sincronizar ahora</button></div>
+      <div class="card"><div class="card-header">Últimos movimientos</div><div id="dash-movs"><div class="loading">Cargando...</div></div></div>
+    </section>
+
+    <!-- SCANNER -->
+    <section id="tab-scanner" class="tab hidden">
+      <div class="page-header"><div class="page-title">Escanear Producto</div></div>
+
+      <!-- Modal PIN -->
+      <div id="pin-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+          <div class="modal-title">🔐 Confirmar identidad</div>
+          <p class="modal-sub">Ingresa tu contraseña para registrar este movimiento</p>
+          <input type="password" id="pin-pass" class="input" placeholder="Tu contraseña" style="margin-bottom:12px">
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-full" onclick="cancelPin()">Cancelar</button>
+            <button class="btn btn-primary btn-full" onclick="confirmPin()">Confirmar</button>
+          </div>
+          <p id="pin-error" class="login-hint" style="color:var(--red);min-height:18px"></p>
+        </div>
+      </div>
+
+      <!-- Cámara -->
+      <div class="card">
+        <div class="card-header">Cámara</div>
+        <div id="reader" style="width:100%;border-radius:8px;overflow:hidden;background:#111;min-height:180px"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-primary" style="flex:1" onclick="startScanner()">▶ Iniciar cámara</button>
+          <button class="btn" style="flex:1" onclick="stopScanner()">■ Detener</button>
+        </div>
+        <p class="hint" style="margin:10px 0 6px">O escribe el código manualmente:</p>
+        <div style="display:flex;gap:8px">
+          <input class="input" type="text" id="manual-code" placeholder="Ej: QM-001">
+          <button class="btn btn-primary" onclick="buscarManual()">Buscar</button>
+        </div>
+      </div>
+
+      <!-- Producto encontrado -->
+      <div id="scan-result-card" class="card hidden">
+        <div class="scan-found"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Producto identificado</div>
+        <div id="scan-info-rows"></div>
+        <div class="action-selector">
+          <div class="action-label">¿Qué deseas hacer?</div>
+          <div class="action-btns-3">
+            <button class="action-btn" id="btn-agregar" onclick="selectAction('entrada')">
+              <span class="action-icon green">↓</span>
+              <span class="action-text">Agregar stock</span>
+              <span class="action-sub">Entrada de mercancía</span>
+            </button>
+            <button class="action-btn" id="btn-descontar" onclick="selectAction('salida')">
+              <span class="action-icon red">↑</span>
+              <span class="action-text">Descontar stock</span>
+              <span class="action-sub">Salida de producto</span>
+            </button>
+            <button class="action-btn" onclick="selectAction('ver')">
+              <span class="action-icon blue">👁</span>
+              <span class="action-text">Solo ver</span>
+              <span class="action-sub">Sin movimiento</span>
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-full" style="margin-top:10px" onclick="limpiarScanner()">← Escanear otro</button>
+      </div>
+
+      <!-- Formulario de movimiento con foto -->
+      <div id="scan-form-card" class="card hidden">
+        <div class="card-header" id="scan-form-title">Registrar movimiento</div>
+        <div class="form-row">
+          <div class="form-group"><label>Cantidad</label><input class="input" type="number" id="f-qty" min="1" placeholder="0"></div>
+          <div class="form-group"><label>Unidad</label><select class="input" id="f-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
+        </div>
+        <div class="form-group"><label>Área / Proveedor / Destino</label><input class="input" type="text" id="f-dest" placeholder="Ej: Producción A"></div>
+        <div id="f-entrada-extra">
+          <div class="form-row">
+            <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="f-lote" placeholder="Ej: L-2025-04"></div>
+            <div class="form-group"><label>Fecha de caducidad</label><input class="input" type="date" id="f-cad"></div>
+          </div>
+        </div>
+        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="f-nota" placeholder="Observaciones"></div>
+
+        <!-- ZONA DE FOTO OBLIGATORIA -->
+        <div class="form-group">
+          <span class="foto-label" id="foto-label">📄 Foto del recibo del proveedor *</span>
+          <div class="foto-zona" onclick="document.getElementById('foto-input').click()">
+            <label class="foto-zona-label">
+              <span class="foto-zona-icon">📷</span>
+              <span class="foto-zona-text">Tomar foto o seleccionar imagen</span>
+              <span class="foto-zona-desc" id="foto-desc">Toca aquí para abrir la cámara</span>
+            </label>
+            <input type="file" id="foto-input" accept="image/*" capture="environment" onchange="onFotoSeleccionada(this)">
+          </div>
+          <span class="foto-status sin-foto" id="foto-status">Sin foto</span>
+          <img id="foto-preview" class="foto-preview hidden" src="" alt="Vista previa">
+        </div>
+
+        <button class="btn btn-primary btn-full" id="btn-registrar" onclick="solicitarPin()">🔐 Confirmar con contraseña</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('scan-form-card').classList.add('hidden')">Cancelar</button>
+      </div>
+
+      <!-- Producto nuevo desde escáner -->
+      <div id="scan-alta-card" class="card hidden">
+        <div class="alta-header">
+          <div class="alta-icon">📦</div>
+          <div>
+            <div class="alta-title">Producto nuevo detectado</div>
+            <div class="alta-sub">Este código no existe. Llena los datos para darlo de alta en el sistema.</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Código (escaneado)</label><input class="input" type="text" id="alta-id" readonly style="background:var(--bg);font-family:'DM Mono',monospace"></div>
+          <div class="form-group"><label>Nombre del producto *</label><input class="input" type="text" id="alta-nombre" placeholder="Ej: Ácido sulfúrico 98%"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="alta-stock" placeholder="0" min="0"></div>
+          <div class="form-group"><label>Stock mínimo (alerta)</label><input class="input" type="number" id="alta-min" placeholder="0" min="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Unidad</label><select class="input" id="alta-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
+          <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="alta-prov" placeholder="Nombre del proveedor"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="alta-lote" placeholder="Ej: L-2025-04"></div>
+          <div class="form-group"><label>Fecha de caducidad</label><input class="input" type="date" id="alta-cad"></div>
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-guardar-alta" onclick="guardarProductoDesdeScanner()">✓ Dar de alta producto</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="limpiarScanner()">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section id="tab-inventario" class="tab hidden">
+      <div class="page-header"><div class="page-title">Inventario</div><button class="btn btn-sm" onclick="cargarInventario()">↻ Actualizar</button></div>
+      <div class="card"><input class="input" type="text" placeholder="Buscar por nombre o código..." oninput="filtrarInv(this.value)" style="margin-bottom:10px"><div id="inv-lista"><div class="loading">Cargando...</div></div></div>
+      <div id="inv-admin-panel" class="hidden">
+        <button class="btn btn-primary btn-full" onclick="mostrarFormProducto()">+ Agregar producto manualmente</button>
+        <div id="form-producto" class="card hidden" style="margin-top:12px">
+          <div class="card-header">Nuevo producto</div>
+          <div class="form-row"><div class="form-group"><label>Código único</label><input class="input" type="text" id="np-id" placeholder="QM-008"></div><div class="form-group"><label>Nombre</label><input class="input" type="text" id="np-nombre" placeholder="Nombre del químico"></div></div>
+          <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="np-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="np-min" placeholder="0"></div></div>
+          <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option></select></div><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov" placeholder="Proveedor"></div></div>
+          <div class="form-row"><div class="form-group"><label>Lote inicial</label><input class="input" type="text" id="np-lote" placeholder="L-2025-01"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="np-cad"></div></div>
+          <button class="btn btn-primary btn-full" onclick="guardarProducto()">Guardar producto</button>
+          <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-producto').classList.add('hidden')">Cancelar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MOVIMIENTOS -->
+    <section id="tab-movimientos" class="tab hidden">
+      <div class="page-header"><div class="page-title">Movimientos</div></div>
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <select class="input" style="flex:1;min-width:120px" id="fil-tipo" onchange="filtrarMov()"><option value="">Todos los tipos</option><option value="entrada">Entradas</option><option value="salida">Salidas</option></select>
+          <select class="input" style="flex:1;min-width:120px" id="fil-user" onchange="filtrarMov()"><option value="">Todos los usuarios</option></select>
+        </div>
+        <div id="mov-lista"><div class="loading">Cargando...</div></div>
+      </div>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="tab-reportes" class="tab hidden">
+      <div class="page-header"><div class="page-title">Reportes</div></div>
+      <div class="card">
+        <div class="card-header">Exportar datos</div>
+        <div class="form-row"><div class="form-group"><label>Fecha inicio</label><input class="input" type="date" id="rep-inicio"></div><div class="form-group"><label>Fecha fin</label><input class="input" type="date" id="rep-fin"></div></div>
+        <div class="form-group"><label>Tipo</label><select class="input" id="rep-tipo"><option value="movimientos">Movimientos</option><option value="inventario">Inventario actual</option><option value="alertas">Productos con alertas</option><option value="pedidos">Pedidos</option></select></div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-primary" style="flex:1" onclick="exportarExcel()">📊 Excel</button>
+          <button class="btn btn-green" style="flex:1" onclick="exportarPDF()">📄 PDF</button>
+        </div>
+      </div>
+      <div class="card"><div class="card-header">Vista previa</div><div id="rep-preview"><div class="empty">Selecciona período y tipo</div></div></div>
+    </section>
+
+    <!-- GRÁFICAS -->
+    <section id="tab-graficas" class="tab hidden">
+      <div class="page-header"><div class="page-title">Gráficas</div></div>
+      <div class="card"><div class="card-header">Movimientos últimos 14 días</div><canvas id="chart-movimientos" height="200"></canvas></div>
+      <div class="card"><div class="card-header">Top 5 productos más activos</div><canvas id="chart-productos" height="200"></canvas></div>
+      <div class="card"><div class="card-header">Stock actual vs mínimo</div><canvas id="chart-stock" height="220"></canvas></div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section id="tab-pedidos" class="tab hidden">
+      <div class="page-header"><div class="page-title">Pedidos</div><button class="btn btn-sm" onclick="cargarPedidos()">↻ Actualizar</button></div>
+      <div class="card"><div id="ped-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormPedido()">+ Nuevo pedido</button></div>
+      <div id="form-pedido" class="card hidden">
+        <div class="card-header">Nuevo pedido</div>
+        <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="pp-prov"></div><div class="form-group"><label>Producto</label><input class="input" type="text" id="pp-prod"></div></div>
+        <div class="form-row"><div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pp-qty" placeholder="Ej: 100 L"></div><div class="form-group"><label>Fecha estimada</label><input class="input" type="date" id="pp-fecha"></div></div>
+        <button class="btn btn-primary btn-full" onclick="guardarPedido()">Crear pedido</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-pedido').classList.add('hidden')">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- USUARIOS -->
+    <section id="tab-usuarios" class="tab hidden">
+      <div class="page-header"><div class="page-title">Gestión de Usuarios</div></div>
+      <div class="card"><div class="card-header">Usuarios del sistema</div><div id="users-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormUsuario()">+ Agregar usuario</button></div>
+      <div id="form-usuario" class="card hidden">
+        <div class="card-header">Nuevo usuario</div>
+        <div class="form-row"><div class="form-group"><label>Nombre completo</label><input class="input" type="text" id="nu-nombre" placeholder="Juan López"></div><div class="form-group"><label>Correo</label><input class="input" type="email" id="nu-email" placeholder="juan@lasnaves.com"></div></div>
+        <div class="form-row"><div class="form-group"><label>Contraseña temporal</label><input class="input" type="text" id="nu-pass" placeholder="Mín. 8 caracteres"></div><div class="form-group"><label>Rol</label><select class="input" id="nu-rol"><option value="operador">Operador</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select></div></div>
+        <button class="btn btn-primary btn-full" onclick="crearUsuario()">Crear usuario</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-usuario').classList.add('hidden')">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- AUDITORÍA -->
+    <section id="tab-auditoria" class="tab hidden">
+      <div class="page-header"><div class="page-title">Auditoría</div></div>
+      <div class="card">
+        <div class="card-header">Historial de cambios</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <select class="input" style="flex:1;min-width:130px" id="aud-tipo" onchange="filtrarAuditoria()"><option value="">Todos</option><option value="login">Inicios de sesión</option><option value="rol_cambio">Cambios de rol</option><option value="producto_nuevo">Productos nuevos</option><option value="movimiento">Movimientos</option></select>
+          <select class="input" style="flex:1;min-width:130px" id="aud-user" onchange="filtrarAuditoria()"><option value="">Todos los usuarios</option></select>
+        </div>
+        <div id="aud-lista"><div class="loading">Cargando...</div></div>
+      </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section id="tab-alertas" class="tab hidden">
+      <div class="page-header"><div class="page-title">Alertas</div></div>
+      <div class="card"><div id="alertas-lista"><div class="loading">Cargando...</div></div></div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="src/lib/config.js"></script>
+<script src="src/lib/api.js"></script>
+<script src="src/lib/offline.js"></script>
+<script src="src/lib/scanner.js"></script>
+<script src="src/lib/charts.js"></script>
+<script src="src/lib/reports.js"></script>
+<script src="src/lib/app.js"></script>
+</body>
+</html>
