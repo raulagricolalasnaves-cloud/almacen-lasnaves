@@ -1,140 +1,97 @@
--- =====================================================
---  Las Naves Agrícola — Base de datos Supabase
---  VERSIÓN CORREGIDA
---  Ejecuta este script completo en: Supabase → SQL Editor
--- =====================================================
+// =====================================================
+//  OFFLINE — Modo sin conexión
+//  Guarda movimientos localmente y sincroniza al volver
+// =====================================================
 
--- PASO 0: Limpiar cualquier instalación anterior
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS handle_new_user();
-DROP TABLE IF EXISTS pedidos;
-DROP TABLE IF EXISTS movimientos;
-DROP TABLE IF EXISTS productos;
-DROP TABLE IF EXISTS perfiles;
+const OFFLINE_KEY = 'lasnaves_offline_queue';
+const CACHE_KEY   = 'lasnaves_productos_cache';
 
--- PASO 1: Crear tablas
-CREATE TABLE perfiles (
-  id         UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  nombre     TEXT NOT NULL,
-  email      TEXT NOT NULL,
-  rol        TEXT NOT NULL DEFAULT 'operador'
-             CHECK (rol IN ('operador', 'supervisor', 'admin')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+const Offline = {
 
-CREATE TABLE productos (
-  id         TEXT PRIMARY KEY,
-  nombre     TEXT NOT NULL,
-  stock      NUMERIC DEFAULT 0,
-  min        NUMERIC DEFAULT 0,
-  unidad     TEXT,
-  proveedor  TEXT,
-  lote       TEXT,
-  caducidad  DATE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+  isOnline() { return navigator.onLine; },
 
-CREATE TABLE movimientos (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo             TEXT NOT NULL CHECK (tipo IN ('entrada','salida')),
-  id_producto      TEXT REFERENCES productos(id),
-  nombre           TEXT,
-  cantidad         NUMERIC,
-  unidad           TEXT,
-  usuario_id       UUID REFERENCES auth.users(id),
-  usuario_nombre   TEXT,
-  destino          TEXT,
-  lote             TEXT,
-  caducidad_lote   DATE,
-  nota             TEXT,
-  stock_resultante NUMERIC,
-  created_at       TIMESTAMPTZ DEFAULT NOW()
-);
+  // Guardar movimiento en cola local
+  encolar(mov) {
+    const cola = this.getCola();
+    cola.push({ ...mov, _offline: true, _ts: Date.now() });
+    localStorage.setItem(OFFLINE_KEY, JSON.stringify(cola));
+  },
 
-CREATE TABLE pedidos (
-  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  num            TEXT,
-  proveedor      TEXT,
-  producto       TEXT,
-  cantidad       TEXT,
-  fecha_estimada DATE,
-  estado         TEXT DEFAULT 'Confirmado',
-  creado_por     TEXT,
-  created_at     TIMESTAMPTZ DEFAULT NOW()
-);
+  getCola() {
+    try { return JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]'); } catch { return []; }
+  },
 
--- PASO 2: Habilitar RLS
-ALTER TABLE perfiles    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE productos   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE movimientos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pedidos     ENABLE ROW LEVEL SECURITY;
+  limpiarCola() { localStorage.setItem(OFFLINE_KEY, '[]'); },
 
--- PASO 3: Políticas RLS
-CREATE POLICY "perfil_propio" ON perfiles
-  FOR SELECT USING (auth.uid() = id);
+  contarCola() { return this.getCola().length; },
 
-CREATE POLICY "admin_ve_todos_perfiles" ON perfiles
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM perfiles p WHERE p.id = auth.uid() AND p.rol = 'admin')
-  );
+  // Cache de productos para modo offline
+  cacheProductos(prods) {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: prods }));
+  },
 
-CREATE POLICY "autenticado_lee_productos" ON productos
-  FOR SELECT USING (auth.role() = 'authenticated');
+  getCacheProductos() {
+    try {
+      const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (!c) return null;
+      // Cache válido por 1 hora
+      if (Date.now() - c.ts > 3600000) return null;
+      return c.data;
+    } catch { return null; }
+  },
 
-CREATE POLICY "admin_supervisor_edita_productos" ON productos
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM perfiles p WHERE p.id = auth.uid() AND p.rol IN ('admin','supervisor'))
-  );
+  // Sincronizar cola con Supabase
+  async sincronizar() {
+    const cola = this.getCola();
+    if (!cola.length) { toast('No hay movimientos pendientes'); return; }
+    if (!this.isOnline()) { toast('Aún sin conexión'); return; }
 
-CREATE POLICY "autenticado_inserta_mov" ON movimientos
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    let ok = 0, fail = 0;
+    for (const mov of cola) {
+      try {
+        const { _offline, _ts, ...movLimpio } = mov;
+        await API.addMovimiento(movLimpio);
+        await API.updateStock(movLimpio.id_producto, movLimpio.stock_resultante);
+        ok++;
+      } catch { fail++; }
+    }
 
-CREATE POLICY "autenticado_lee_mov" ON movimientos
-  FOR SELECT USING (auth.role() = 'authenticated');
+    this.limpiarCola();
+    actualizarBannerSync();
+    toast(`Sincronizado: ${ok} movimientos guardados${fail ? `, ${fail} fallaron` : ''}`);
+  }
+};
 
-CREATE POLICY "sup_admin_pedidos" ON pedidos
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM perfiles p WHERE p.id = auth.uid() AND p.rol IN ('admin','supervisor'))
-  );
+function actualizarBannerSync() {
+  const n   = Offline.contarCola();
+  const ban = document.getElementById('sync-pending');
+  const cnt = document.getElementById('sync-count');
+  if (!ban) return;
+  if (n > 0) { ban.classList.remove('hidden'); if (cnt) cnt.textContent = n; }
+  else ban.classList.add('hidden');
+}
 
--- PASO 4: Función y trigger corregidos
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO perfiles (id, nombre, email, rol)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'nombre', split_part(NEW.email, '@', 1)),
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'rol', 'operador')
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+function sincronizarOffline() { Offline.sincronizar(); }
 
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+// Detectar cambios de conexión
+window.addEventListener('online', () => {
+  document.getElementById('offline-dot')?.classList.add('hidden');
+  document.getElementById('offline-banner')?.classList.add('hidden');
+  toast('Conexión restaurada');
+  actualizarBannerSync();
+  if (Offline.contarCola() > 0) Offline.sincronizar();
+});
 
--- =====================================================
---  CREAR USUARIO ADMINISTRADOR
---  *** Reemplaza los 3 valores marcados con tus datos ***
--- =====================================================
-INSERT INTO auth.users (
-  id, email, encrypted_password,
-  email_confirmed_at, created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data,
-  is_super_admin, role
-)
-VALUES (
-  gen_random_uuid(),
-  'TU-CORREO@ejemplo.com',
-  crypt('TU-CONTRASENA-AQUI', gen_salt('bf')),
-  NOW(), NOW(), NOW(),
-  '{"provider":"email","providers":["email"]}',
-  '{"nombre":"Tu Nombre Completo","rol":"admin"}',
-  false,
-  'authenticated'
-)
-ON CONFLICT (email) DO NOTHING;
+window.addEventListener('offline', () => {
+  document.getElementById('offline-dot')?.classList.remove('hidden');
+  document.getElementById('offline-banner')?.classList.remove('hidden');
+  toast('Sin conexión — modo offline activo');
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  actualizarBannerSync();
+  if (!navigator.onLine) {
+    document.getElementById('offline-dot')?.classList.remove('hidden');
+    document.getElementById('offline-banner')?.classList.remove('hidden');
+  }
+});
