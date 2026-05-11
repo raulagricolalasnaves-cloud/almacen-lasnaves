@@ -8,7 +8,7 @@ let currentProfile = null;
 let todosMovimientos = [];
 let todosProductos   = [];
 let todaAuditoria    = [];
-let scanner = null;
+
 
 // ── INIT ──────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
