@@ -1,316 +1,156 @@
-// =====================================================
-//  SCANNER v5 — Con evidencia fotográfica
-//  Entrada: foto del recibo del proveedor
-//  Salida:  foto del vale de entrega
-// =====================================================
+# Las Naves Agrícola — Instrucciones de publicación
+## Sistema de Almacén de Químicos con seguridad real
 
-let productoEscaneado  = null;
-let accionSeleccionada = null;
-let scanner = null;
-let fotoEvidencia = null; // archivo de foto capturado
+---
 
-// ── CÁMARA ESCÁNER ────────────────────────────────────
-function startScanner() {
-  if (scanner) return;
-  const el = document.getElementById('reader');
-  if (el) el.innerHTML = '';
-  scanner = new Html5Qrcode('reader');
-  scanner.start(
-    { facingMode: 'environment' },
-    { fps: 10, qrbox: { width: 260, height: 140 } },
-    (code) => { stopScanner(); procesarCodigo(code.trim()); },
-    () => {}
-  ).catch(() => toast('No se pudo acceder a la cámara. Verifica los permisos.'));
-}
+## Lo que necesitas (todo gratuito)
+- Cuenta en **Supabase** → supabase.com
+- Cuenta en **GitHub**   → github.com
+- Cuenta de **Google**   (si quieres exportar datos a Sheets, opcional)
 
-function stopScanner() {
-  if (scanner) { scanner.stop().catch(() => {}); scanner = null; }
-}
+Tiempo estimado: **40 minutos**
 
-async function buscarManual() {
-  const cod = document.getElementById('manual-code').value.trim();
-  if (!cod) { toast('Ingresa un código'); return; }
-  await procesarCodigo(cod);
-}
+---
 
-// ── PROCESAR CÓDIGO ───────────────────────────────────
-async function procesarCodigo(codigo) {
-  toast('Buscando producto...');
-  ocultarTodasLasVistas();
-  const prod = await API.getProducto(codigo);
-  if (prod) {
-    productoEscaneado  = prod;
-    accionSeleccionada = null;
-    mostrarProductoEncontrado(prod);
-  } else {
-    mostrarFormularioAlta(codigo);
-  }
-}
+## PASO 1 — Crear el proyecto en Supabase (10 min)
 
-function ocultarTodasLasVistas() {
-  ['scan-result-card','scan-form-card','scan-alta-card'].forEach(id =>
-    document.getElementById(id)?.classList.add('hidden')
-  );
-  fotoEvidencia = null;
-}
+1. Ve a **supabase.com** → "Start your project" → crea cuenta con Google
+2. Haz clic en **"New project"**
+3. Escribe:
+   - Nombre: `lasnaves-almacen`
+   - Contraseña de base de datos: anótala en un lugar seguro
+   - Región: `US East (N. Virginia)` (la más cercana a México)
+4. Espera ~2 minutos a que el proyecto se cree
 
-// ── PRODUCTO ENCONTRADO ───────────────────────────────
-function mostrarProductoEncontrado(p) {
-  const hoy  = new Date();
-  const dias  = p.caducidad ? Math.floor((new Date(p.caducidad) - hoy) / 86400000) : null;
-  const bajo  = Number(p.stock) <= Number(p.min);
+### 1a. Ejecutar el SQL de la base de datos
+1. En el menú izquierdo haz clic en **"SQL Editor"**
+2. Haz clic en **"New query"**
+3. Abre el archivo `supabase_setup.sql` con el Bloc de Notas
+4. Copia TODO su contenido y pégalo en el editor
+5. Haz clic en **"Run"** (botón verde)
+6. Debe decir "Success" en verde
 
-  document.getElementById('scan-info-rows').innerHTML = `
-    <div class="scan-info-row"><span>Nombre</span><strong>${p.nombre}</strong></div>
-    <div class="scan-info-row"><span>Código</span><span>${p.id}</span></div>
-    <div class="scan-info-row"><span>Stock actual</span>
-      <strong style="color:${bajo?'var(--red)':'inherit'}">${p.stock} ${p.unidad||''}</strong>
-      ${bajo ? '<span class="badge badge-danger">Stock bajo</span>' : ''}
-    </div>
-    <div class="scan-info-row"><span>Stock mínimo</span><span>${p.min} ${p.unidad||''}</span></div>
-    <div class="scan-info-row"><span>Lote</span><span>${p.lote||'—'}</span></div>
-    <div class="scan-info-row"><span>Caducidad</span>
-      <span>${p.caducidad||'—'}${dias!==null?` <span class="badge ${dias<30?'badge-danger':dias<90?'badge-warn':'badge-ok'}">${dias}d</span>`:''}</span>
-    </div>
-    <div class="scan-info-row"><span>Proveedor</span><span>${p.proveedor||'—'}</span></div>`;
+### 1b. Obtener tus credenciales
+1. Ve a **Settings → API** (menú izquierdo)
+2. Copia estos dos valores:
+   - **Project URL** → algo como `https://abcdefgh.supabase.co`
+   - **anon public key** → una cadena larga de letras
 
-  ['btn-agregar','btn-descontar'].forEach(id =>
-    document.getElementById(id)?.classList.remove('selected-entrada','selected-salida')
-  );
-  document.getElementById('scan-form-card').classList.add('hidden');
-  document.getElementById('scan-result-card').classList.remove('hidden');
-  document.getElementById('scan-result-card').scrollIntoView({ behavior:'smooth', block:'nearest' });
-}
+---
 
-// ── SELECCIONAR ACCIÓN ────────────────────────────────
-function selectAction(tipo) {
-  accionSeleccionada = tipo;
-  fotoEvidencia = null;
+## PASO 2 — Configurar el sistema (5 min)
 
-  document.getElementById('btn-agregar')?.classList.toggle('selected-entrada',  tipo === 'entrada');
-  document.getElementById('btn-descontar')?.classList.toggle('selected-salida', tipo === 'salida');
+1. Abre el archivo `src/lib/config.js` con el Bloc de Notas
+2. Reemplaza los valores:
+```javascript
+SUPABASE_URL:  "https://TU_PROYECTO.supabase.co",   // ← tu Project URL
+SUPABASE_ANON: "TU_ANON_KEY_AQUI",                  // ← tu anon public key
+```
+3. Guarda el archivo
 
-  if (tipo === 'ver') {
-    toast('Producto: ' + productoEscaneado.nombre + ' — Stock: ' + productoEscaneado.stock + ' ' + (productoEscaneado.unidad||''));
-    return;
-  }
+---
 
-  // Título del formulario
-  document.getElementById('scan-form-title').textContent =
-    tipo === 'entrada' ? '↓ Agregar stock al inventario' : '↑ Descontar del inventario';
+## PASO 3 — Crear tu usuario administrador (5 min)
 
-  // Campos solo para entrada
-  document.getElementById('f-entrada-extra').style.display = tipo === 'entrada' ? 'block' : 'none';
+1. En Supabase, ve a **Authentication → Users**
+2. Haz clic en **"Add user" → "Create new user"**
+3. Escribe:
+   - Email: tu correo (ej: admin@lasnaves.com)
+   - Password: tu contraseña segura (mín. 8 caracteres)
+4. Haz clic en **"Create user"**
+5. Ve a **Table Editor → perfiles**
+6. Busca tu usuario recién creado
+7. Haz clic en el campo `rol` y cámbialo de `operador` a `admin`
+8. Guarda el cambio
 
-  // Sección de foto — etiqueta según tipo
-  const fotoLabel = document.getElementById('foto-label');
-  const fotoDesc  = document.getElementById('foto-desc');
-  if (fotoLabel) fotoLabel.textContent = tipo === 'entrada' ? '📄 Foto del recibo del proveedor *' : '📋 Foto del vale de entrega *';
-  if (fotoDesc)  fotoDesc.textContent  = tipo === 'entrada' ? 'Toma o selecciona la foto del recibo' : 'Toma o selecciona la foto del vale';
+---
 
-  // Limpiar foto anterior
-  resetFoto();
+## PASO 4 — Publicar en GitHub Pages (10 min)
 
-  // Prellenar unidad
-  const unitSel = document.getElementById('f-unit');
-  if (unitSel && productoEscaneado.unidad) {
-    [...unitSel.options].forEach(o => { if (o.value === productoEscaneado.unidad) unitSel.value = o.value; });
-  }
+1. Ve a **github.com** → crea cuenta si no tienes
+2. Haz clic en el botón verde **"New"** (nuevo repositorio)
+3. Nombre del repositorio: `almacen-lasnaves`
+4. Selecciona **"Public"**
+5. Haz clic en **"Create repository"**
+6. En la página del repositorio, haz clic en **"uploading an existing file"**
+7. Arrastra **todos los archivos y carpetas** del ZIP:
+   ```
+   index.html
+   public/
+     logo.png
+   src/
+     styles/main.css
+     lib/config.js
+     lib/api.js
+     lib/app.js
+   ```
+8. Escribe un mensaje: "Subir sistema almacén"
+9. Haz clic en **"Commit changes"**
+10. Ve a **Settings → Pages**
+11. En "Source" elige **"Deploy from a branch"**
+12. Branch: **"main"** → Save
 
-  document.getElementById('scan-form-card').classList.remove('hidden');
-  document.getElementById('scan-form-card').scrollIntoView({ behavior:'smooth', block:'nearest' });
-}
+En 1-2 minutos tu sistema estará en:
+```
+https://TU-USUARIO.github.io/almacen-lasnaves
+```
 
-// ── MANEJO DE FOTO ────────────────────────────────────
-function resetFoto() {
-  fotoEvidencia = null;
-  const prev = document.getElementById('foto-preview');
-  const inp  = document.getElementById('foto-input');
-  if (prev) { prev.src = ''; prev.classList.add('hidden'); }
-  if (inp)  inp.value = '';
-  const btn = document.getElementById('foto-status');
-  if (btn) { btn.textContent = 'Sin foto'; btn.className = 'foto-status sin-foto'; }
-}
+---
 
-function onFotoSeleccionada(input) {
-  const file = input.files[0];
-  if (!file) return;
+## PASO 5 — Acceder desde el celular (2 min)
 
-  // Validar tipo y tamaño (máx 5MB)
-  if (!file.type.startsWith('image/')) { toast('Solo se aceptan imágenes'); resetFoto(); return; }
-  if (file.size > 5 * 1024 * 1024)    { toast('La imagen no debe superar 5MB'); resetFoto(); return; }
+1. Abre la URL en Chrome (Android) o Safari (iPhone)
+2. Para instalar como app:
+   - **Android**: Menú (⋮) → "Agregar a pantalla de inicio"
+   - **iPhone**: Compartir (□↑) → "Agregar a pantalla de inicio"
 
-  fotoEvidencia = file;
+---
 
-  // Mostrar preview
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const prev = document.getElementById('foto-preview');
-    if (prev) { prev.src = e.target.result; prev.classList.remove('hidden'); }
-  };
-  reader.readAsDataURL(file);
+## PASO 6 — Agregar usuarios operadores (5 min)
 
-  const btn = document.getElementById('foto-status');
-  if (btn) { btn.textContent = '✓ Foto lista: ' + file.name; btn.className = 'foto-status con-foto'; }
+Una vez que entres como administrador:
+1. Ve a la pestaña **Usuarios** (solo visible para admin)
+2. Haz clic en **"+ Agregar usuario"**
+3. Llena nombre, correo y contraseña temporal
+4. Selecciona el rol:
+   - **Operador**: solo escanear y ver inventario
+   - **Supervisor**: escanear + inventario + pedidos
+   - **Administrador**: acceso total
 
-  toast('✓ Foto capturada: ' + file.name);
-}
+Para cambiar el rol de un usuario existente, solo cambia el selector en la lista de usuarios.
 
-// ── SOLICITAR PIN ─────────────────────────────────────
-function solicitarPin() {
-  if (!accionSeleccionada || accionSeleccionada === 'ver') return;
+---
 
-  const qty = Number(document.getElementById('f-qty').value);
-  if (!qty || qty <= 0) { toast('Ingresa una cantidad válida'); return; }
+## Niveles de acceso (Roles)
 
-  if (!fotoEvidencia) {
-    const tipo = accionSeleccionada;
-    toast('⚠ ' + (tipo === 'entrada' ? 'Debes adjuntar la foto del recibo del proveedor' : 'Debes adjuntar la foto del vale de entrega'));
-    document.getElementById('foto-input')?.focus();
-    return;
-  }
+| Función                    | Operador | Supervisor | Admin |
+|----------------------------|:--------:|:----------:|:-----:|
+| Ver dashboard              | ✓        | ✓          | ✓     |
+| Escanear (con pin)         | ✓        | ✓          | ✓     |
+| Ver inventario             | ✓        | ✓          | ✓     |
+| Agregar productos          |          | ✓          | ✓     |
+| Ver movimientos            | ✓        | ✓          | ✓     |
+| Gestionar pedidos          |          | ✓          | ✓     |
+| Ver alertas                |          | ✓          | ✓     |
+| Gestionar usuarios         |          |            | ✓     |
 
-  document.getElementById('pin-pass').value = '';
-  document.getElementById('pin-error').textContent = '';
-  document.getElementById('pin-modal').classList.remove('hidden');
-  document.getElementById('pin-pass').focus();
-}
+---
 
-function cancelPin() { document.getElementById('pin-modal').classList.add('hidden'); }
+## Seguridad implementada
 
-async function confirmPin() {
-  const pass = document.getElementById('pin-pass').value;
-  if (!pass) { document.getElementById('pin-error').textContent = 'Ingresa tu contraseña'; return; }
-  document.getElementById('pin-error').textContent = 'Verificando...';
-  const ok = await API.verificarPassword(pass);
-  if (!ok) { document.getElementById('pin-error').textContent = 'Contraseña incorrecta'; return; }
-  document.getElementById('pin-modal').classList.add('hidden');
-  await registrarMovimiento();
-}
+- **Supabase Auth**: login real con email y contraseña, tokens JWT
+- **RLS (Row Level Security)**: la base de datos rechaza peticiones no autorizadas a nivel de fila, no solo en el frontend
+- **Zero Trust en scanner**: cada movimiento requiere confirmar tu contraseña aunque ya estés logueado
+- **Roles en base de datos**: los permisos se verifican en el servidor, no solo en pantalla
 
-// ── REGISTRAR MOVIMIENTO CON FOTO ─────────────────────
-async function registrarMovimiento() {
-  const qty         = Number(document.getElementById('f-qty').value);
-  const tipo        = accionSeleccionada;
-  const stockActual = Number(productoEscaneado.stock);
+---
 
-  if (tipo === 'salida' && qty > stockActual) {
-    toast(`Stock insuficiente. Solo hay ${stockActual} ${productoEscaneado.unidad||''}`);
-    return;
-  }
+## ¿Algo salió mal?
 
-  const btn = document.getElementById('btn-registrar');
-  btn.disabled = true;
-  btn.textContent = 'Guardando...';
-
-  const nuevoStock = tipo === 'entrada' ? stockActual + qty : stockActual - qty;
-  const unit       = document.getElementById('f-unit').value;
-  const movId      = crypto.randomUUID();
-  const now        = new Date().toISOString();
-
-  // 1. Subir foto a Supabase Storage
-  let fotoUrl = null;
-  try {
-    const ext      = fotoEvidencia.name.split('.').pop();
-    const rutaFoto = `${tipo}/${now.split('T')[0]}/${movId}.${ext}`;
-    fotoUrl = await API.subirFoto(rutaFoto, fotoEvidencia);
-  } catch {
-    toast('Error al subir la foto. Intenta de nuevo.');
-    btn.disabled = false; btn.textContent = '🔐 Confirmar con contraseña';
-    return;
-  }
-
-  // 2. Guardar movimiento con URL de foto
-  const mov = {
-    id:              movId,
-    tipo,
-    id_producto:     productoEscaneado.id,
-    nombre:          productoEscaneado.nombre,
-    cantidad:        qty,
-    unidad:          unit,
-    usuario_id:      currentUser.id,
-    usuario_nombre:  currentProfile?.nombre || currentUser.email,
-    destino:         document.getElementById('f-dest').value,
-    lote:            tipo === 'entrada' ? document.getElementById('f-lote').value : productoEscaneado.lote,
-    caducidad_lote:  tipo === 'entrada' ? document.getElementById('f-cad').value  : productoEscaneado.caducidad,
-    nota:            document.getElementById('f-nota').value,
-    stock_resultante: nuevoStock,
-    foto_evidencia:  fotoUrl,
-    created_at:      now,
-  };
-
-  try {
-    await Promise.all([API.addMovimiento(mov), API.updateStock(productoEscaneado.id, nuevoStock)]);
-    await API.addAuditoria({
-      tipo: 'movimiento',
-      descripcion: `${tipo === 'entrada' ? 'Entrada' : 'Salida'} de ${qty} ${unit} de ${productoEscaneado.nombre} — con evidencia fotográfica`,
-      usuario_id:    currentUser.id,
-      usuario_nombre: currentProfile?.nombre || currentUser.email,
-      metadata: { producto: productoEscaneado.id, cantidad: qty, tipo, nuevo_stock: nuevoStock, foto: fotoUrl }
-    });
-
-    toast(`✓ ${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada con foto — nuevo stock: ${nuevoStock} ${unit}`);
-    limpiarScanner();
-  } catch {
-    toast('Error al guardar el movimiento. Intenta de nuevo.');
-  }
-
-  btn.disabled = false;
-  btn.textContent = '🔐 Confirmar con contraseña';
-}
-
-// ── PRODUCTO NUEVO DESDE ESCÁNER ──────────────────────
-function mostrarFormularioAlta(codigo) {
-  ['alta-id','alta-nombre','alta-stock','alta-min','alta-prov','alta-lote'].forEach(id => {
-    const e = document.getElementById(id); if (e) e.value = '';
-  });
-  const c = document.getElementById('alta-cad'); if (c) c.value = '';
-  document.getElementById('alta-id').value = codigo;
-  document.getElementById('scan-alta-card').classList.remove('hidden');
-  document.getElementById('scan-alta-card').scrollIntoView({ behavior:'smooth', block:'nearest' });
-  toast('Producto nuevo — llena los datos para darlo de alta');
-}
-
-async function guardarProductoDesdeScanner() {
-  const prod = {
-    id:        document.getElementById('alta-id').value.trim(),
-    nombre:    document.getElementById('alta-nombre').value.trim(),
-    stock:     Number(document.getElementById('alta-stock').value) || 0,
-    min:       Number(document.getElementById('alta-min').value)   || 0,
-    unidad:    document.getElementById('alta-unit').value,
-    proveedor: document.getElementById('alta-prov').value.trim(),
-    lote:      document.getElementById('alta-lote').value.trim(),
-    caducidad: document.getElementById('alta-cad').value,
-  };
-  if (!prod.id || !prod.nombre) { toast('El código y nombre son obligatorios'); return; }
-
-  const btn = document.getElementById('btn-guardar-alta');
-  btn.disabled = true; btn.textContent = 'Guardando...';
-
-  try {
-    await API.addProducto(prod);
-    await API.addAuditoria({
-      tipo: 'producto_nuevo',
-      descripcion: `Alta desde escáner: ${prod.nombre} (${prod.id})`,
-      usuario_id:    currentUser.id,
-      usuario_nombre: currentProfile?.nombre || currentUser.email,
-      metadata: { id: prod.id, stock: prod.stock }
-    });
-    toast('✓ Producto dado de alta: ' + prod.nombre);
-    limpiarScanner();
-  } catch(e) { toast('Error al guardar: ' + e.message); }
-
-  btn.disabled = false; btn.textContent = '✓ Dar de alta producto';
-}
-
-// ── LIMPIAR ───────────────────────────────────────────
-function limpiarScanner() {
-  productoEscaneado  = null;
-  accionSeleccionada = null;
-  fotoEvidencia      = null;
-  ocultarTodasLasVistas();
-  document.getElementById('manual-code').value = '';
-  ['f-qty','f-dest','f-lote','f-nota'].forEach(id => { const e=document.getElementById(id); if(e) e.value=''; });
-  const c = document.getElementById('f-cad'); if (c) c.value = '';
-  resetFoto();
-}
+| Problema | Solución |
+|----------|----------|
+| "Error al cargar" en dashboard | Verifica las URLs en `config.js` |
+| No puedo iniciar sesión | Ve a Supabase → Authentication → confirma que el usuario existe |
+| No aparece como admin | Ve a Table Editor → perfiles → cambia el rol a `admin` |
+| Cámara no funciona | Acepta los permisos de cámara en el navegador |
+| Producto no encontrado | El código escaneado debe coincidir exactamente con el campo `id` en la tabla `productos` |

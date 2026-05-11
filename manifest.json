@@ -1,1 +1,14 @@
-<!-- SCANNER SECTION - paste inside index.html tab-scanner -->
+{
+  "name": "Las Naves Agrícola — Almacén",
+  "short_name": "AlmacénQ",
+  "description": "Control de almacén de productos químicos",
+  "start_url": "/almacen-lasnaves/",
+  "display": "standalone",
+  "background_color": "#0f2a5c",
+  "theme_color": "#0f2a5c",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "public/logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "public/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
