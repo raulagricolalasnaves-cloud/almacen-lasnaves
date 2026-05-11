@@ -1,363 +1,323 @@
-/* ── Variables ── */
-:root {
-  --navy: #0f2a5c;
-  --navy2: #1a3d7c;
-  --green: #2d8a4e;
-  --green2: #3aab62;
-  --green-bg: #f0faf3;
-  --red: #c0392b;
-  --red-bg: #fef2f2;
-  --amber: #b7770d;
-  --amber-bg: #fffbeb;
-  --blue: #1a56db;
-  --blue-bg: #eff6ff;
-  --bg: #f4f6f9;
-  --surface: #ffffff;
-  --border: #e2e7ef;
-  --text: #111827;
-  --text2: #4b5563;
-  --text3: #9ca3af;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 1px 4px rgba(0,0,0,.07), 0 4px 16px rgba(0,0,0,.04);
+// =====================================================
+//  APP v5 — Las Naves Agrícola
+//  Con evidencia fotográfica en movimientos
+// =====================================================
+
+let currentUser    = null;
+let currentProfile = null;
+let todosMovimientos = [];
+let todosProductos   = [];
+let todaAuditoria    = [];
+let scanner = null;
+
+// ── INIT ──────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const d = new Date();
+  const el = document.getElementById('dash-date');
+  if (el) el.textContent = d.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
+
+  const session = await API.getSession();
+  if (session) { currentUser = session.user; await cargarPerfil(); }
+
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await cargarPerfil();
+      API.addAuditoria({ tipo:'login', descripcion:'Inicio de sesión', usuario_id: session.user.id, usuario_nombre: currentProfile?.nombre || session.user.email });
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null; currentProfile = null; mostrarLogin();
+    }
+  });
+});
+
+async function cargarPerfil() {
+  try { currentProfile = await API.getProfile(currentUser.id); mostrarApp(); }
+  catch { toast('Error al cargar perfil'); await API.signOut(); }
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: 'DM Sans', -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.5;
-  min-height: 100vh;
+// ── AUTH ──────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('l-email').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const btn   = document.getElementById('btn-login');
+  const err   = document.getElementById('login-error');
+  if (!email || !pass) { err.textContent='Ingresa tu correo y contraseña'; err.style.color='#c0392b'; return; }
+  btn.disabled = true;
+  document.getElementById('login-label').textContent = 'Verificando...';
+  err.textContent = '';
+  try { await API.signIn(email, pass); }
+  catch { err.textContent='Correo o contraseña incorrectos'; err.style.color='#c0392b'; btn.disabled=false; document.getElementById('login-label').textContent='Iniciar sesión'; }
 }
-.hidden { display: none !important; }
-.screen { min-height: 100vh; }
-.screen.hidden { display: none !important; }
 
-/* ── LOGIN ── */
-.login-bg {
-  position: fixed; inset: 0;
-  background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 50%, #1a5c2e 100%);
-  z-index: 0;
-  overflow: hidden;
-}
-.login-orb {
-  position: absolute; border-radius: 50%;
-  filter: blur(80px); opacity: .25;
-}
-.orb1 { width: 400px; height: 400px; background: var(--green2); top: -100px; right: -100px; }
-.orb2 { width: 300px; height: 300px; background: #5b9bd5; bottom: -80px; left: -80px; }
-.login-card {
-  position: relative; z-index: 1;
-  background: rgba(255,255,255,.97);
-  border-radius: 18px;
-  padding: 36px 32px;
-  width: 100%; max-width: 380px;
-  margin: 0 auto;
-  top: 50%; transform: translateY(-50%);
-  box-shadow: 0 20px 60px rgba(0,0,0,.3);
-}
-.login-logo-wrap { text-align: center; margin-bottom: 16px; }
-.login-logo { width: 90px; height: 90px; object-fit: contain; }
-.login-title { font-size: 20px; font-weight: 600; color: var(--navy); text-align: center; margin-bottom: 4px; }
-.login-sub { font-size: 12px; color: var(--text3); text-align: center; margin-bottom: 24px; }
-.login-hint { font-size: 12px; color: var(--text3); text-align: center; margin-top: 12px; min-height: 18px; }
+async function doLogout() { await API.signOut(); }
 
-/* ── APP SHELL ── */
-.app { display: flex; flex-direction: column; min-height: 100vh; max-width: 720px; margin: 0 auto; }
-
-/* ── TOPBAR ── */
-.topbar {
-  background: var(--navy);
-  padding: 10px 16px;
-  display: flex; justify-content: space-between; align-items: center;
-  position: sticky; top: 0; z-index: 20;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+function mostrarLogin() {
+  document.getElementById('screen-app').classList.add('hidden');
+  document.getElementById('screen-login').classList.remove('hidden');
+  document.getElementById('l-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('btn-login').disabled = false;
+  document.getElementById('login-label').textContent = 'Iniciar sesión';
 }
-.topbar-left { display: flex; align-items: center; gap: 10px; }
-.topbar-logo { width: 34px; height: 34px; object-fit: contain; border-radius: 6px; background: rgba(255,255,255,.1); padding: 2px; }
-.topbar-title { font-size: 14px; font-weight: 600; color: #fff; }
-.topbar-sub { font-size: 10px; color: rgba(255,255,255,.55); }
-.topbar-right { display: flex; align-items: center; gap: 8px; }
-.user-chip { display: flex; align-items: center; gap: 7px; }
-.user-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: var(--green2); color: #fff;
-  font-size: 12px; font-weight: 600;
-  display: flex; align-items: center; justify-content: center;
+
+function mostrarApp() {
+  document.getElementById('screen-login').classList.add('hidden');
+  document.getElementById('screen-app').classList.remove('hidden');
+  const nombre = currentProfile?.nombre || currentUser?.email || '—';
+  const rol    = currentProfile?.rol || 'operador';
+  document.getElementById('topbar-name').textContent = nombre;
+  document.getElementById('topbar-role').textContent = rol;
+  document.getElementById('topbar-avatar').textContent = nombre.substring(0,2).toUpperCase();
+  aplicarPermisosTabs(rol);
+  cargarDashboard();
 }
-.user-info { line-height: 1.2; }
-.user-name { font-size: 12px; color: #fff; font-weight: 500; }
-.user-role { font-size: 10px; color: rgba(255,255,255,.55); text-transform: capitalize; }
-.btn-icon { background: none; border: none; cursor: pointer; color: rgba(255,255,255,.7); padding: 4px; border-radius: 6px; display: flex; align-items: center; }
-.btn-icon:hover { color: #fff; background: rgba(255,255,255,.1); }
 
-/* ── NAV ── */
-.nav {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  position: sticky; top: 57px; z-index: 19;
-  scrollbar-width: none;
+function aplicarPermisosTabs(rol) {
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const roles = btn.getAttribute('data-roles')?.split(',') || [];
+    btn.style.display = roles.includes(rol) ? '' : 'none';
+  });
+  const p = document.getElementById('inv-admin-panel');
+  if (p) { if (['admin','supervisor'].includes(rol)) p.classList.remove('hidden'); else p.classList.add('hidden'); }
 }
-.nav::-webkit-scrollbar { display: none; }
-.nav-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 11px; font-size: 10.5px; color: var(--text2);
-  border: none; background: none; cursor: pointer;
-  border-bottom: 2.5px solid transparent;
-  white-space: nowrap; min-width: 58px; font-family: inherit;
-  transition: color .15s, border-color .15s;
+
+// ── NAVEGACIÓN ────────────────────────────────────────
+function goTo(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  btn.classList.add('active');
+  if (typeof stopScanner === 'function') stopScanner();
+  ({ dashboard: cargarDashboard, inventario: cargarInventario, movimientos: cargarMovimientos,
+     pedidos: cargarPedidos, usuarios: cargarUsuarios, alertas: cargarAlertas,
+     graficas: cargarGraficas, auditoria: cargarAuditoria })[tab]?.();
 }
-.nav-btn svg { color: var(--text3); transition: color .15s; }
-.nav-btn.active { color: var(--navy); border-bottom-color: var(--green); font-weight: 500; }
-.nav-btn.active svg { color: var(--green); }
-.alert-dot { background: var(--red); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 10px; margin-left: 2px; }
 
-/* ── MAIN ── */
-.main { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-.tab { display: flex; flex-direction: column; gap: 12px; }
-.tab.hidden { display: none; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-.page-title { font-size: 17px; font-weight: 600; color: var(--navy); }
-.page-date { font-size: 12px; color: var(--text3); }
-
-/* ── CARDS ── */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  box-shadow: var(--shadow);
+// ── DASHBOARD ─────────────────────────────────────────
+async function cargarDashboard() {
+  try {
+    const [prods, movs, peds] = await Promise.all([API.getProductos(), API.getMovimientos(6), API.getPedidos()]);
+    todosProductos = prods;
+    const hoy  = new Date();
+    const bajo = prods.filter(p => Number(p.stock) <= Number(p.min)).length;
+    const cad  = prods.filter(p => p.caducidad && Math.floor((new Date(p.caducidad)-hoy)/86400000) < CONFIG.DIAS_ALERTA_CADUCIDAD).length;
+    const act  = peds.filter(p => p.estado !== 'Entregado').length;
+    document.getElementById('m-prod').textContent = prods.length;
+    document.getElementById('m-bajo').textContent = bajo;
+    document.getElementById('m-cad').textContent  = cad;
+    document.getElementById('m-ped').textContent  = act;
+    const cnt = bajo + cad;
+    const dot = document.getElementById('alert-count');
+    dot.textContent = cnt;
+    cnt > 0 ? dot.classList.remove('hidden') : dot.classList.add('hidden');
+    document.getElementById('dash-movs').innerHTML = movs.length ? movs.map(renderMovItem).join('') : '<div class="empty">Sin movimientos aún</div>';
+  } catch {
+    document.getElementById('dash-movs').innerHTML = '<div class="empty">Error al cargar. Verifica tu configuración.</div>';
+  }
 }
-.card-header { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
 
-/* ── METRICS ── */
-.metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-@media(min-width:500px) { .metrics { grid-template-columns: repeat(4, 1fr); } }
-.metric-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 14px 12px;
-  display: flex; align-items: center; gap: 10px;
-  box-shadow: var(--shadow);
+// ── MOVIMIENTOS ───────────────────────────────────────
+async function cargarMovimientos() {
+  document.getElementById('mov-lista').innerHTML = '<div class="loading">Cargando...</div>';
+  try {
+    todosMovimientos = await API.getMovimientos(100);
+    const users = [...new Set(todosMovimientos.map(m => m.usuario_nombre).filter(Boolean))];
+    const sel = document.getElementById('fil-user');
+    sel.innerHTML = '<option value="">Todos los usuarios</option>' + users.map(u=>`<option>${u}</option>`).join('');
+    filtrarMov();
+  } catch { document.getElementById('mov-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
 }
-.metric-icon {
-  width: 38px; height: 38px; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+
+function filtrarMov() {
+  const tipo = document.getElementById('fil-tipo').value;
+  const user = document.getElementById('fil-user').value;
+  const f = todosMovimientos.filter(m => (!tipo||m.tipo===tipo) && (!user||m.usuario_nombre===user));
+  document.getElementById('mov-lista').innerHTML = f.length ? f.map(renderMovItem).join('') : '<div class="empty">Sin movimientos</div>';
 }
-.metric-icon.green { background: var(--green-bg); color: var(--green); }
-.metric-icon.red { background: var(--red-bg); color: var(--red); }
-.metric-icon.amber { background: var(--amber-bg); color: var(--amber); }
-.metric-icon.blue { background: var(--blue-bg); color: var(--blue); }
-.metric-val { font-size: 22px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--navy); }
-.metric-label { font-size: 11px; color: var(--text2); margin-top: 1px; }
 
-/* ── FORMS ── */
-.form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-label { font-size: 12px; font-weight: 500; color: var(--text2); }
-.input, select {
-  width: 100%; padding: 9px 11px; font-size: 13px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text);
-  outline: none; font-family: inherit; transition: border-color .15s;
+function renderMovItem(m) {
+  const signo = m.tipo === 'entrada' ? '+' : '−';
+  const fecha = m.created_at ? new Date(m.created_at).toLocaleString('es-MX') : '—';
+  const fotoHtml = m.foto_evidencia
+    ? `<div class="mov-foto"><a href="#" onclick="verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale de entrega'}</a></div>`
+    : `<div class="mov-foto" style="color:var(--text3);font-size:11px">Sin evidencia fotográfica</div>`;
+  return `<div class="mov-item">
+    <div class="mov-dot ${m.tipo}">${m.tipo==='entrada'?'↓':'↑'}</div>
+    <div class="mov-body">
+      <div class="mov-name">${m.nombre}</div>
+      <div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>
+      ${fotoHtml}
+    </div>
+    <div class="mov-qty ${m.tipo}">${signo}${m.cantidad} ${m.unidad||''}</div>
+  </div>`;
 }
-.input:focus, select:focus { border-color: var(--green2); box-shadow: 0 0 0 3px rgba(45,138,78,.1); }
-.hint { font-size: 12px; color: var(--text3); }
 
-/* ── BUTTONS ── */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 9px 16px; font-size: 13px; font-weight: 500;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--surface); color: var(--text);
-  cursor: pointer; font-family: inherit; transition: all .15s;
+// ── VISOR DE FOTO ─────────────────────────────────────
+function verFoto(url) {
+  const modal = document.getElementById('foto-modal');
+  const img   = document.getElementById('foto-modal-img');
+  if (!modal || !img) return;
+  img.src = url;
+  modal.classList.remove('hidden');
 }
-.btn:hover { background: var(--bg); }
-.btn:active { opacity: .85; transform: scale(.99); }
-.btn-primary { background: var(--navy); color: #fff; border-color: var(--navy); }
-.btn-primary:hover { background: var(--navy2); }
-.btn-green { background: var(--green); color: #fff; border-color: var(--green); }
-.btn-green:hover { background: var(--green2); }
-.btn-full { width: 100%; }
-.btn-sm { padding: 5px 10px; font-size: 12px; }
 
-/* ── SCANNER ── */
-.scan-found {
-  background: var(--green-bg); color: var(--green);
-  font-size: 13px; font-weight: 600;
-  padding: 8px 12px; border-radius: var(--radius-sm);
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 10px;
+function cerrarFotoModal() {
+  document.getElementById('foto-modal')?.classList.add('hidden');
+  const img = document.getElementById('foto-modal-img');
+  if (img) img.src = '';
 }
-.scan-info-row {
-  display: flex; justify-content: space-between;
-  font-size: 13px; padding: 5px 0;
-  border-bottom: 1px solid var(--border);
+
+// ── INVENTARIO ────────────────────────────────────────
+async function cargarInventario() {
+  document.getElementById('inv-lista').innerHTML = '<div class="loading">Cargando...</div>';
+  try { todosProductos = await API.getProductos(); renderInventario(todosProductos); }
+  catch { document.getElementById('inv-lista').innerHTML = '<div class="empty">Error al cargar</div>'; }
 }
-.scan-info-row:last-child { border-bottom: none; }
-.scan-info-row span:first-child { color: var(--text2); }
 
-/* ACTION SELECTOR */
-.action-selector { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
-.action-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .5px; }
-.action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.action-btn {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 16px 10px; border: 2px solid var(--border);
-  border-radius: var(--radius); background: var(--surface);
-  cursor: pointer; transition: all .15s; gap: 4px;
+function renderInventario(lista) {
+  const hoy = new Date();
+  document.getElementById('inv-lista').innerHTML = lista.length
+    ? lista.map(p => {
+        const sN=Number(p.stock), mN=Number(p.min);
+        const dias=p.caducidad?Math.floor((new Date(p.caducidad)-hoy)/86400000):null;
+        let badge='badge-ok', bt='OK';
+        if(sN<=mN){badge='badge-danger';bt='Stock bajo';}
+        else if(dias!==null&&dias<CONFIG.DIAS_ALERTA_CADUCIDAD){badge='badge-warn';bt='Por caducar';}
+        return `<div class="inv-item"><div><div class="inv-name">${p.nombre}</div><div class="inv-sub">${p.id} · Lote: ${p.lote||'—'} · Cad: ${p.caducidad||'—'}</div></div><div class="inv-right"><div class="inv-stock">${p.stock} <small>${p.unidad||''}</small></div><span class="badge ${badge}">${bt}</span></div></div>`;
+      }).join('')
+    : '<div class="empty">Sin productos registrados</div>';
 }
-.action-btn:hover { border-color: var(--navy); background: #f8faff; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
-.action-btn.selected-entrada { border-color: var(--green); background: var(--green-bg); }
-.action-btn.selected-salida { border-color: var(--red); background: var(--red-bg); }
-.action-icon { font-size: 22px; font-weight: 700; }
-.action-icon.green { color: var(--green); }
-.action-icon.red { color: var(--red); }
-.action-text { font-size: 13px; font-weight: 600; color: var(--text); }
-.action-sub { font-size: 11px; color: var(--text3); }
 
-/* PIN MODAL */
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 100;
-  background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
+function filtrarInv(q) {
+  renderInventario(todosProductos.filter(p =>
+    p.nombre.toLowerCase().includes(q.toLowerCase()) || p.id.toLowerCase().includes(q.toLowerCase())
+  ));
 }
-.modal-card {
-  background: var(--surface); border-radius: var(--radius);
-  padding: 28px 24px; width: 100%; max-width: 360px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.3);
+
+function mostrarFormProducto() {
+  const f = document.getElementById('form-producto');
+  f.classList.remove('hidden'); f.scrollIntoView({behavior:'smooth'});
 }
-.modal-title { font-size: 16px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
-.modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
 
-/* ── LISTS ── */
-.mov-item {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 0; border-bottom: 1px solid var(--border);
+async function guardarProducto() {
+  const prod = { id:document.getElementById('np-id').value.trim(), nombre:document.getElementById('np-nombre').value.trim(), stock:Number(document.getElementById('np-stock').value)||0, min:Number(document.getElementById('np-min').value)||0, unidad:document.getElementById('np-unit').value, proveedor:document.getElementById('np-prov').value.trim(), lote:document.getElementById('np-lote').value.trim(), caducidad:document.getElementById('np-cad').value };
+  if (!prod.id||!prod.nombre) { toast('Completa código y nombre'); return; }
+  try {
+    await API.addProducto(prod);
+    await API.addAuditoria({tipo:'producto_nuevo',descripcion:`Producto agregado: ${prod.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{id:prod.id}});
+    toast('Producto guardado'); document.getElementById('form-producto').classList.add('hidden'); cargarInventario();
+  } catch(e) { toast('Error: '+e.message); }
 }
-.mov-item:last-child { border-bottom: none; }
-.mov-dot {
-  width: 32px; height: 32px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; flex-shrink: 0;
+
+// ── PEDIDOS ───────────────────────────────────────────
+async function cargarPedidos() {
+  document.getElementById('ped-lista').innerHTML='<div class="loading">Cargando...</div>';
+  try {
+    const peds = await API.getPedidos();
+    document.getElementById('ped-lista').innerHTML = peds.length
+      ? peds.map(p=>`<div class="pedido-item"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="pedido-name">${p.num||'PED'} — ${p.producto}</div><div class="pedido-meta">${p.proveedor} · ${p.cantidad} · ${p.fecha_estimada||'—'}</div></div><span class="badge ${p.estado==='Entregado'?'badge-ok':p.estado==='En tránsito'?'badge-info':'badge-warn'}">${p.estado}</span></div>${p.estado!=='Entregado'?`<button class="btn btn-sm btn-green" style="margin-top:8px" onclick="marcarEntregado('${p.id}')">✓ Marcar entregado</button>`:''}</div>`).join('')
+      : '<div class="empty">Sin pedidos</div>';
+  } catch { document.getElementById('ped-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
 }
-.mov-dot.entrada { background: var(--green-bg); color: var(--green); }
-.mov-dot.salida { background: var(--red-bg); color: var(--red); }
-.mov-body { flex: 1; min-width: 0; }
-.mov-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mov-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-.mov-qty { font-size: 13px; font-weight: 600; white-space: nowrap; font-family: 'DM Mono', monospace; }
-.mov-qty.entrada { color: var(--green); }
-.mov-qty.salida { color: var(--red); }
 
-.inv-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0; border-bottom: 1px solid var(--border); gap: 10px;
+function mostrarFormPedido() { const f=document.getElementById('form-pedido'); f.classList.remove('hidden'); f.scrollIntoView({behavior:'smooth'}); }
+
+async function guardarPedido() {
+  const peds = await API.getPedidos();
+  const num  = 'PED-'+String(peds.length+1).padStart(3,'0');
+  const ped  = { num, proveedor:document.getElementById('pp-prov').value.trim(), producto:document.getElementById('pp-prod').value.trim(), cantidad:document.getElementById('pp-qty').value.trim(), fecha_estimada:document.getElementById('pp-fecha').value, estado:'Confirmado', creado_por:currentProfile?.nombre||currentUser?.email };
+  if (!ped.proveedor||!ped.producto) { toast('Completa proveedor y producto'); return; }
+  try { await API.addPedido(ped); toast('Pedido '+num+' creado'); document.getElementById('form-pedido').classList.add('hidden'); cargarPedidos(); }
+  catch(e) { toast('Error: '+e.message); }
 }
-.inv-item:last-child { border-bottom: none; }
-.inv-name { font-size: 13px; font-weight: 500; }
-.inv-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
-.inv-stock { font-size: 14px; font-weight: 600; font-family: 'DM Mono', monospace; text-align: right; }
-.inv-right { text-align: right; flex-shrink: 0; }
 
-.pedido-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
-.pedido-item:last-child { border-bottom: none; }
-.pedido-name { font-size: 13px; font-weight: 500; }
-.pedido-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-
-.user-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 0; border-bottom: 1px solid var(--border);
+async function marcarEntregado(id) {
+  try { await API.updatePedidoEstado(id,'Entregado'); toast('Pedido marcado como entregado'); cargarPedidos(); }
+  catch { toast('Error al actualizar'); }
 }
-.user-item:last-child { border-bottom: none; }
-.user-item-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: var(--navy); color: #fff;
-  font-size: 13px; font-weight: 600;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+
+// ── USUARIOS ──────────────────────────────────────────
+async function cargarUsuarios() {
+  if (currentProfile?.rol !== 'admin') return;
+  document.getElementById('users-lista').innerHTML='<div class="loading">Cargando...</div>';
+  try {
+    const users = await API.getUsuarios();
+    document.getElementById('users-lista').innerHTML = users.length
+      ? users.map(u=>`<div class="user-item"><div class="user-item-avatar">${(u.nombre||'?').substring(0,2).toUpperCase()}</div><div class="user-item-body"><div class="user-item-name">${u.nombre||'—'}</div><div class="user-item-email">${u.email||'—'}</div></div><div class="rol-select"><select onchange="cambiarRol('${u.id}',this.value,'${u.nombre}')" ${u.id===currentUser.id?'disabled':''}><option value="operador" ${u.rol==='operador'?'selected':''}>Operador</option><option value="supervisor" ${u.rol==='supervisor'?'selected':''}>Supervisor</option><option value="admin" ${u.rol==='admin'?'selected':''}>Admin</option></select><span class="badge badge-${u.rol}">${u.rol}</span></div></div>`).join('')
+      : '<div class="empty">Sin usuarios</div>';
+  } catch { document.getElementById('users-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
 }
-.user-item-body { flex: 1; min-width: 0; }
-.user-item-name { font-size: 13px; font-weight: 500; }
-.user-item-email { font-size: 11px; color: var(--text3); }
 
-.alert-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
-.alert-item:last-child { border-bottom: none; }
-.alert-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-.alert-icon.danger { background: var(--red-bg); color: var(--red); }
-.alert-icon.warn { background: var(--amber-bg); color: var(--amber); }
-.alert-name { font-size: 13px; font-weight: 500; }
-.alert-detail { font-size: 11px; color: var(--text2); margin-top: 2px; }
-
-/* ── BADGES ── */
-.badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
-.badge-ok { background: var(--green-bg); color: var(--green); }
-.badge-warn { background: var(--amber-bg); color: var(--amber); }
-.badge-danger { background: var(--red-bg); color: var(--red); }
-.badge-info { background: var(--blue-bg); color: var(--blue); }
-.badge-admin { background: #f3f0ff; color: #6d28d9; }
-.badge-supervisor { background: #fff7ed; color: #c2410c; }
-.badge-operador { background: var(--green-bg); color: var(--green); }
-
-/* ── ROL SELECT ── */
-.rol-select { display: flex; gap: 6px; align-items: center; }
-.rol-select select { padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); }
-
-/* ── TOAST ── */
-.toast {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-  background: var(--navy); color: #fff;
-  padding: 10px 20px; border-radius: var(--radius); font-size: 13px;
-  z-index: 999; white-space: nowrap; max-width: 90vw;
-  animation: fadein .2s;
+async function cambiarRol(userId, nuevoRol, nombre) {
+  try {
+    await API.updateRol(userId, nuevoRol);
+    await API.addAuditoria({tipo:'rol_cambio',descripcion:`Rol de ${nombre} cambiado a ${nuevoRol}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{usuario_afectado:userId,nuevo_rol:nuevoRol}});
+    toast('Rol actualizado a: '+nuevoRol); cargarUsuarios();
+  } catch(e) { toast('Error: '+e.message); }
 }
-@keyframes fadein { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-.loading { text-align: center; color: var(--text3); padding: 24px; font-size: 13px; }
-.empty { text-align: center; color: var(--text3); padding: 24px; font-size: 13px; }
 
-/* ── NUEVAS CLASES v3 ── */
-.offline-banner{background:var(--amber-bg);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:12px;text-align:center}
-.offline-dot{color:#f59e0b;font-size:16px;margin-right:4px}
-.sync-banner{background:var(--amber-bg);border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--amber);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.rep-table{width:100%;border-collapse:collapse;font-size:12px}
-.rep-table th{background:var(--navy);color:#fff;padding:6px 8px;text-align:left;font-size:11px}
-.rep-table td{padding:5px 8px;border-bottom:1px solid var(--border)}
-.rep-table tr:nth-child(even){background:var(--bg)}
-.aud-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start}
-.aud-item:last-child{border-bottom:none}
-.aud-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.aud-icon.login{background:var(--blue-bg);color:var(--blue)}
-.aud-icon.rol{background:#f3f0ff;color:#6d28d9}
-.aud-icon.prod{background:var(--green-bg);color:var(--green)}
-.aud-icon.mov{background:var(--amber-bg);color:var(--amber)}
-.aud-name{font-size:13px;font-weight:500}
-.aud-meta{font-size:11px;color:var(--text2);margin-top:2px}
+function mostrarFormUsuario() { const f=document.getElementById('form-usuario'); f.classList.remove('hidden'); f.scrollIntoView({behavior:'smooth'}); }
 
-/* ── SCANNER v4 ── */
-.action-btns-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.action-icon.blue{color:var(--blue)}
-.alta-header{display:flex;gap:12px;align-items:flex-start;padding:14px;background:var(--amber-bg);border:1px solid #fcd34d;border-radius:var(--radius-sm);margin-bottom:14px}
-.alta-icon{font-size:28px;flex-shrink:0}
-.alta-title{font-size:14px;font-weight:600;color:var(--amber);margin-bottom:3px}
-.alta-sub{font-size:12px;color:var(--text2);line-height:1.5}
+async function crearUsuario() {
+  const nombre=document.getElementById('nu-nombre').value.trim();
+  const email=document.getElementById('nu-email').value.trim();
+  const pass=document.getElementById('nu-pass').value;
+  const rol=document.getElementById('nu-rol').value;
+  if (!nombre||!email||!pass) { toast('Completa todos los campos'); return; }
+  if (pass.length<8) { toast('La contraseña debe tener al menos 8 caracteres'); return; }
+  try { await API.crearUsuario(email,pass,nombre,rol); toast('Usuario creado: '+nombre); document.getElementById('form-usuario').classList.add('hidden'); cargarUsuarios(); }
+  catch(e) { toast('Error: '+e.message); }
+}
 
-/* ── FOTOS DE EVIDENCIA v5 ── */
-.foto-zona{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:16px;text-align:center;margin:10px 0;cursor:pointer;transition:border-color .15s;background:var(--bg)}
-.foto-zona:hover{border-color:var(--green)}
-.foto-zona input[type=file]{display:none}
-.foto-zona-label{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
-.foto-zona-icon{font-size:28px}
-.foto-zona-text{font-size:13px;font-weight:500;color:var(--text)}
-.foto-zona-hint{font-size:11px;color:var(--text3)}
-.foto-preview{width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius-sm);margin-top:8px;border:1px solid var(--border)}
-.foto-status{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:500;margin-top:6px;display:inline-block}
-.foto-status.sin-foto{background:var(--red-bg);color:var(--red)}
-.foto-status.con-foto{background:var(--green-bg);color:var(--green)}
-.foto-label{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px;display:block}
-.mov-foto{margin-top:6px}
-.mov-foto a{font-size:11px;color:var(--blue);text-decoration:none;display:inline-flex;align-items:center;gap:4px}
-.mov-foto a:hover{text-decoration:underline}
-.foto-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
-.foto-modal img{max-width:100%;max-height:90vh;border-radius:var(--radius);object-fit:contain}
-.foto-modal-close{position:absolute;top:16px;right:16px;background:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+// ── AUDITORÍA ─────────────────────────────────────────
+async function cargarAuditoria() {
+  document.getElementById('aud-lista').innerHTML='<div class="loading">Cargando...</div>';
+  try {
+    todaAuditoria = await API.getAuditoria();
+    const users = [...new Set(todaAuditoria.map(a=>a.usuario_nombre).filter(Boolean))];
+    const sel = document.getElementById('aud-user');
+    sel.innerHTML = '<option value="">Todos los usuarios</option>'+users.map(u=>`<option>${u}</option>`).join('');
+    filtrarAuditoria();
+  } catch { document.getElementById('aud-lista').innerHTML='<div class="empty">Sin registros</div>'; }
+}
+
+function filtrarAuditoria() {
+  const tipo = document.getElementById('aud-tipo').value;
+  const user = document.getElementById('aud-user').value;
+  const f = todaAuditoria.filter(a => (!tipo||a.tipo===tipo) && (!user||a.usuario_nombre===user));
+  const icons={login:'🔑',rol_cambio:'👤',producto_nuevo:'📦',movimiento:'🔄'};
+  const clases={login:'login',rol_cambio:'rol',producto_nuevo:'prod',movimiento:'mov'};
+  document.getElementById('aud-lista').innerHTML = f.length
+    ? f.map(a=>`<div class="aud-item"><div class="aud-icon ${clases[a.tipo]||'mov'}">${icons[a.tipo]||'📋'}</div><div><div class="aud-name">${a.descripcion||a.tipo}</div><div class="aud-meta">${a.usuario_nombre||'—'} · ${a.created_at?new Date(a.created_at).toLocaleString('es-MX'):'—'}</div></div></div>`).join('')
+    : '<div class="empty">Sin registros</div>';
+}
+
+// ── ALERTAS ───────────────────────────────────────────
+async function cargarAlertas() {
+  document.getElementById('alertas-lista').innerHTML='<div class="loading">Cargando...</div>';
+  try {
+    const prods = await API.getProductos();
+    const hoy = new Date(); const alertas = [];
+    prods.forEach(p => {
+      if (Number(p.stock)<=Number(p.min)) alertas.push({tipo:'danger',icon:'⚠',nombre:p.nombre,detalle:`Stock bajo: ${p.stock} ${p.unidad||''} (mínimo: ${p.min})`});
+      if (p.caducidad) { const dias=Math.floor((new Date(p.caducidad)-hoy)/86400000); if(dias<CONFIG.DIAS_ALERTA_CADUCIDAD) alertas.push({tipo:'warn',icon:'⏰',nombre:p.nombre,detalle:`Caduca en ${dias} días (${p.caducidad})`}); }
+    });
+    document.getElementById('alertas-lista').innerHTML = alertas.length
+      ? alertas.map(a=>`<div class="alert-item"><div class="alert-icon ${a.tipo}">${a.icon}</div><div><div class="alert-name">${a.nombre}</div><div class="alert-detail">${a.detalle}</div></div></div>`).join('')
+      : '<div class="empty">✓ Sin alertas activas</div>';
+  } catch { document.getElementById('alertas-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
+}
+
+// ── TOAST ─────────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.add('hidden'), 3200);
+}
+
+// ── EVENTOS ───────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('l-pass')?.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('pin-pass')?.addEventListener('keydown', e => { if(e.key==='Enter') confirmPin(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape') cerrarFotoModal(); });
+});
