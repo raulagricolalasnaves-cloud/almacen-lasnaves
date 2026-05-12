@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Las Naves Agrícola — Control de Almacén</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>Las Naves Agrícola — ERP Almacén</title>
 <link rel="icon" href="public/logo.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f2a5c">
@@ -19,24 +19,28 @@
 <!-- LOGIN -->
 <div id="screen-login" class="screen active">
   <div class="login-bg"><div class="login-orb orb1"></div><div class="login-orb orb2"></div></div>
-  <div class="login-card">
-    <div class="login-logo-wrap"><img src="public/logo.png" alt="Las Naves Agrícola" class="login-logo"></div>
-    <h1 class="login-title">Control de Almacén</h1>
-    <p class="login-sub">Acceso seguro · Las Naves Agrícola</p>
-    <div id="offline-banner" class="offline-banner hidden">⚠ Sin conexión — modo offline activo</div>
-    <div class="form-group"><label>Correo electrónico</label><input type="email" id="l-email" class="input" placeholder="usuario@lasnaves.com" autocomplete="email"></div>
-    <div class="form-group"><label>Contraseña</label><input type="password" id="l-pass" class="input" placeholder="••••••••" autocomplete="current-password"></div>
-    <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()"><span id="login-label">Iniciar sesión</span></button>
-    <p class="login-hint" id="login-error"></p>
+  <div class="login-screen-wrapper">
+    <div class="login-card">
+      <div class="login-logo-wrap"><img src="public/logo.png" alt="Las Naves Agrícola" class="login-logo"></div>
+      <h1 class="login-title">Control de Almacén</h1>
+      <p class="login-sub">Acceso seguro · Las Naves Agrícola</p>
+      <div id="offline-banner" class="offline-banner hidden">⚠ Sin conexión — modo offline activo</div>
+      <div class="form-group"><label>Correo electrónico</label><input type="email" id="l-email" class="input" placeholder="usuario@lasnaves.com" autocomplete="email"></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="l-pass" class="input" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn btn-primary btn-full" id="btn-login" onclick="doLogin()"><span id="login-label">Iniciar sesión</span></button>
+      <p class="login-hint" id="login-error"></p>
+    </div>
   </div>
 </div>
 
 <!-- APP -->
 <div id="screen-app" class="screen hidden">
+
+  <!-- TOPBAR -->
   <header class="topbar">
     <div class="topbar-left">
       <img src="public/logo.png" alt="Logo" class="topbar-logo">
-      <div><div class="topbar-title">Las Naves Agrícola</div><div class="topbar-sub">Almacén de Químicos</div></div>
+      <div><div class="topbar-title">Las Naves Agrícola</div><div class="topbar-sub">ERP Almacén</div></div>
     </div>
     <div class="topbar-right">
       <div id="offline-dot" class="offline-dot hidden">●</div>
@@ -48,23 +52,59 @@
     </div>
   </header>
 
+  <!-- SELECTOR DE ALMACÉN -->
+  <div class="almacen-selector-bar" id="almacen-bar">
+    <label>🏭 Almacén activo:</label>
+    <select id="almacen-selector" onchange="cambiarAlmacen(this.value)"></select>
+  </div>
+
+  <!-- NAV -->
   <nav class="nav">
     <button class="nav-btn active" onclick="goTo('dashboard',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
+    <button class="nav-btn" onclick="goTo('dir',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Dirección</button>
+    <button class="nav-btn" onclick="goTo('entradas',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>Entradas</button>
+    <button class="nav-btn" onclick="goTo('salidas',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 7 12 3 8 7"/><line x1="12" y1="12" x2="12" y2="3"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>Salidas</button>
     <button class="nav-btn" onclick="goTo('scanner',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Escanear</button>
     <button class="nav-btn" onclick="goTo('inventario',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</button>
+    <button class="nav-btn" onclick="goTo('conteo',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Conteo</button>
     <button class="nav-btn" onclick="goTo('movimientos',this)" data-roles="admin,supervisor,operador"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Movimientos</button>
-    <button class="nav-btn" onclick="goTo('reportes',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>Reportes</button>
-    <button class="nav-btn" onclick="goTo('graficas',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Gráficas</button>
+    <button class="nav-btn" onclick="goTo('reportes',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Reportes</button>
     <button class="nav-btn" onclick="goTo('pedidos',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Pedidos</button>
+    <button class="nav-btn" onclick="goTo('proveedores',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>Proveedores</button>
+    <button class="nav-btn" onclick="goTo('almacenes',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Almacenes</button>
     <button class="nav-btn" onclick="goTo('usuarios',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</button>
+    <button class="nav-btn" onclick="goTo('notificaciones',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="2" x2="12" y2="3"/></svg>Notif.</button>
+    <button class="nav-btn" onclick="goTo('respaldo',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>Respaldo</button>
     <button class="nav-btn" onclick="goTo('auditoria',this)" data-roles="admin"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoría</button>
     <button class="nav-btn" onclick="goTo('alertas',this)" data-roles="admin,supervisor"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alertas<span id="alert-count" class="alert-dot hidden">0</span></button>
   </nav>
 
-  <!-- Modal visor de foto -->
+  <!-- MODALES GLOBALES -->
   <div id="foto-modal" class="foto-modal hidden" onclick="cerrarFotoModal()">
     <button class="foto-modal-close" onclick="cerrarFotoModal()">✕</button>
     <img id="foto-modal-img" src="" alt="Evidencia">
+  </div>
+  <div id="pin-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-title">🔐 Confirmar identidad</div>
+      <p class="modal-sub">Ingresa tu contraseña para confirmar</p>
+      <input type="password" id="pin-pass" class="input" placeholder="Tu contraseña" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-full" onclick="cancelPin()">Cancelar</button>
+        <button class="btn btn-primary btn-full" onclick="confirmPin()">Confirmar</button>
+      </div>
+      <p id="pin-error" class="login-hint" style="color:var(--red);min-height:18px"></p>
+    </div>
+  </div>
+  <div id="sds-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width:480px;max-height:90vh;overflow-y:auto">
+      <div id="sds-modal-content"></div>
+    </div>
+  </div>
+  <div id="qr-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width:400px">
+      <div id="qr-modal-content"></div>
+    </div>
   </div>
 
   <main class="main">
@@ -78,71 +118,118 @@
         <div class="metric-card"><div class="metric-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="metric-body"><div class="metric-val" id="m-cad">—</div><div class="metric-label">Por caducar</div></div></div>
         <div class="metric-card"><div class="metric-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="metric-body"><div class="metric-val" id="m-ped">—</div><div class="metric-label">Pedidos activos</div></div></div>
       </div>
-      <div id="sync-pending" class="sync-banner hidden">⚠ Tienes <span id="sync-count">0</span> movimientos pendientes. <button class="btn btn-sm" onclick="sincronizarOffline()">Sincronizar ahora</button></div>
+      <div id="sync-pending" class="sync-banner hidden">⚠ <span id="sync-count">0</span> movimientos offline. <button class="btn btn-sm" onclick="sincronizarOffline()">Sincronizar</button></div>
       <div class="card"><div class="card-header">Últimos movimientos</div><div id="dash-movs"><div class="loading">Cargando...</div></div></div>
+    </section>
+
+    <!-- DASHBOARD DIRECCIÓN -->
+    <section id="tab-dir" class="tab hidden">
+      <div class="page-header"><div class="page-title">Dashboard Dirección</div><button class="btn btn-sm" onclick="cargarDashboardDir()">↻ Actualizar</button></div>
+      <div id="dir-content"><div class="loading">Cargando...</div></div>
+    </section>
+
+    <!-- ENTRADAS -->
+    <section id="tab-entradas" class="tab hidden">
+      <div class="page-header"><div class="page-title">Registro de Entradas</div></div>
+      <div class="card">
+        <div class="card-header">Buscar producto</div>
+        <input class="input" type="text" id="ent-buscar" placeholder="Escribe nombre o código..." oninput="buscarProductoEntrada(this.value)">
+        <div id="ent-resultados" style="margin-top:8px"></div>
+      </div>
+      <div id="ent-form-card" class="card hidden">
+        <div class="card-header">↓ Entrada — <span id="ent-prod-nombre" style="color:var(--green)"></span></div>
+        <div class="inv-item" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+          <div><div class="inv-name" id="ent-prod-id"></div><div class="inv-sub">Stock actual: <strong id="ent-prod-stock"></strong></div></div>
+        </div>
+        <div id="ent-sds-banner"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Cantidad</label><input class="input" type="number" id="ent-qty" min="1" placeholder="0"></div>
+          <div class="form-group"><label>Unidad</label><select class="input" id="ent-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="ent-lote" placeholder="L-2025-04"></div>
+          <div class="form-group"><label>Fecha de caducidad</label><input class="input" type="date" id="ent-cad"></div>
+        </div>
+        <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ent-prov" placeholder="Nombre del proveedor"></div>
+        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="ent-nota" placeholder="Observaciones"></div>
+        <div class="form-group">
+          <span class="foto-label">📄 Foto del recibo del proveedor *</span>
+          <div class="foto-zona" onclick="document.getElementById('ent-foto-input').click()">
+            <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
+            <input type="file" id="ent-foto-input" accept="image/*" capture="environment" onchange="onFotoEntrada(this)">
+          </div>
+          <span class="foto-status sin-foto" id="ent-foto-status">Sin foto</span>
+          <img id="ent-foto-preview" class="foto-preview hidden" src="" alt="Preview">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="solicitarPinEntrada()">🔐 Confirmar entrada</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarEntrada()">Cancelar</button>
+      </div>
+    </section>
+
+    <!-- SALIDAS -->
+    <section id="tab-salidas" class="tab hidden">
+      <div class="page-header"><div class="page-title">Registro de Salidas</div></div>
+      <div class="card">
+        <div class="card-header">Buscar producto</div>
+        <input class="input" type="text" id="sal-buscar" placeholder="Escribe nombre o código..." oninput="buscarProductoSalida(this.value)">
+        <div id="sal-resultados" style="margin-top:8px"></div>
+      </div>
+      <div id="sal-form-card" class="card hidden">
+        <div class="card-header">↑ Salida — <span id="sal-prod-nombre" style="color:var(--red)"></span></div>
+        <div class="inv-item" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+          <div><div class="inv-name" id="sal-prod-id"></div><div class="inv-sub">Stock actual: <strong id="sal-prod-stock"></strong></div></div>
+        </div>
+        <div id="sal-sds-banner"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Cantidad</label><input class="input" type="number" id="sal-qty" min="1" placeholder="0"></div>
+          <div class="form-group"><label>Unidad</label><select class="input" id="sal-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
+        </div>
+        <div class="form-group"><label>Área o destino</label><input class="input" type="text" id="sal-dest" placeholder="Ej: Producción A"></div>
+        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="sal-nota" placeholder="Observaciones"></div>
+        <div class="form-group">
+          <span class="foto-label">📋 Foto del vale de entrega *</span>
+          <div class="foto-zona" onclick="document.getElementById('sal-foto-input').click()">
+            <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
+            <input type="file" id="sal-foto-input" accept="image/*" capture="environment" onchange="onFotoSalida(this)">
+          </div>
+          <span class="foto-status sin-foto" id="sal-foto-status">Sin foto</span>
+          <img id="sal-foto-preview" class="foto-preview hidden" src="" alt="Preview">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="solicitarPinSalida()">🔐 Confirmar salida</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarSalida()">Cancelar</button>
+      </div>
     </section>
 
     <!-- SCANNER -->
     <section id="tab-scanner" class="tab hidden">
-      <div class="page-header"><div class="page-title">Escanear Producto</div></div>
-
-      <!-- Modal PIN -->
-      <div id="pin-modal" class="modal-overlay hidden">
-        <div class="modal-card">
-          <div class="modal-title">🔐 Confirmar identidad</div>
-          <p class="modal-sub">Ingresa tu contraseña para registrar este movimiento</p>
-          <input type="password" id="pin-pass" class="input" placeholder="Tu contraseña" style="margin-bottom:12px">
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-full" onclick="cancelPin()">Cancelar</button>
-            <button class="btn btn-primary btn-full" onclick="confirmPin()">Confirmar</button>
-          </div>
-          <p id="pin-error" class="login-hint" style="color:var(--red);min-height:18px"></p>
-        </div>
-      </div>
-
-      <!-- Cámara -->
+      <div class="page-header"><div class="page-title">Escanear Código</div></div>
       <div class="card">
-        <div class="card-header">Cámara</div>
         <div id="reader" style="width:100%;border-radius:8px;overflow:hidden;background:#111;min-height:180px"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn btn-primary" style="flex:1" onclick="startScanner()">▶ Iniciar cámara</button>
           <button class="btn" style="flex:1" onclick="stopScanner()">■ Detener</button>
         </div>
         <p class="hint" style="margin:10px 0 6px">O escribe el código manualmente:</p>
-        <div style="display:flex;gap:8px">
-          <input class="input" type="text" id="manual-code" placeholder="Ej: QM-001">
-          <button class="btn btn-primary" onclick="buscarManual()">Buscar</button>
-        </div>
+        <div style="display:flex;gap:8px"><input class="input" type="text" id="manual-code" placeholder="Ej: QM-001"><button class="btn btn-primary" onclick="buscarManual()">Buscar</button></div>
       </div>
-
-      <!-- Producto encontrado -->
       <div id="scan-result-card" class="card hidden">
         <div class="scan-found"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Producto identificado</div>
         <div id="scan-info-rows"></div>
+        <div id="scan-sds-banner"></div>
         <div class="action-selector">
           <div class="action-label">¿Qué deseas hacer?</div>
           <div class="action-btns-3">
-            <button class="action-btn" id="btn-agregar" onclick="selectAction('entrada')">
-              <span class="action-icon green">↓</span>
-              <span class="action-text">Agregar stock</span>
-              <span class="action-sub">Entrada de mercancía</span>
-            </button>
-            <button class="action-btn" id="btn-descontar" onclick="selectAction('salida')">
-              <span class="action-icon red">↑</span>
-              <span class="action-text">Descontar stock</span>
-              <span class="action-sub">Salida de producto</span>
-            </button>
-            <button class="action-btn" onclick="selectAction('ver')">
-              <span class="action-icon blue">👁</span>
-              <span class="action-text">Solo ver</span>
-              <span class="action-sub">Sin movimiento</span>
-            </button>
+            <button class="action-btn" id="btn-agregar" onclick="selectAction('entrada')"><span class="action-icon green">↓</span><span class="action-text">Agregar stock</span><span class="action-sub">Entrada</span></button>
+            <button class="action-btn" id="btn-descontar" onclick="selectAction('salida')"><span class="action-icon red">↑</span><span class="action-text">Descontar</span><span class="action-sub">Salida</span></button>
+            <button class="action-btn" onclick="selectAction('ver')"><span class="action-icon blue">👁</span><span class="action-text">Ver detalle</span><span class="action-sub">Sin movimiento</span></button>
           </div>
         </div>
-        <button class="btn btn-full" style="margin-top:10px" onclick="limpiarScanner()">← Escanear otro</button>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn" style="flex:1" onclick="abrirQRDesdeScanner()">🏷 Etiqueta QR</button>
+          <button class="btn" style="flex:1" onclick="abrirSDSDesdeScanner()">🛡 Ver SDS</button>
+          <button class="btn" style="flex:1" onclick="limpiarScanner()">← Otro</button>
+        </div>
       </div>
-
-      <!-- Formulario de movimiento con foto -->
       <div id="scan-form-card" class="card hidden">
         <div class="card-header" id="scan-form-title">Registrar movimiento</div>
         <div class="form-row">
@@ -152,56 +239,30 @@
         <div class="form-group"><label>Área / Proveedor / Destino</label><input class="input" type="text" id="f-dest" placeholder="Ej: Producción A"></div>
         <div id="f-entrada-extra">
           <div class="form-row">
-            <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="f-lote" placeholder="Ej: L-2025-04"></div>
-            <div class="form-group"><label>Fecha de caducidad</label><input class="input" type="date" id="f-cad"></div>
+            <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="f-lote" placeholder="L-2025-04"></div>
+            <div class="form-group"><label>Caducidad</label><input class="input" type="date" id="f-cad"></div>
           </div>
         </div>
-        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="f-nota" placeholder="Observaciones"></div>
-
-        <!-- ZONA DE FOTO OBLIGATORIA -->
+        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="f-nota"></div>
         <div class="form-group">
-          <span class="foto-label" id="foto-label">📄 Foto del recibo del proveedor *</span>
+          <span class="foto-label" id="foto-label">📄 Foto del recibo *</span>
           <div class="foto-zona" onclick="document.getElementById('foto-input').click()">
-            <label class="foto-zona-label">
-              <span class="foto-zona-icon">📷</span>
-              <span class="foto-zona-text">Tomar foto o seleccionar imagen</span>
-              <span class="foto-zona-desc" id="foto-desc">Toca aquí para abrir la cámara</span>
-            </label>
+            <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar</span></label>
             <input type="file" id="foto-input" accept="image/*" capture="environment" onchange="onFotoSeleccionada(this)">
           </div>
           <span class="foto-status sin-foto" id="foto-status">Sin foto</span>
-          <img id="foto-preview" class="foto-preview hidden" src="" alt="Vista previa">
+          <img id="foto-preview" class="foto-preview hidden" src="" alt="Preview">
         </div>
-
         <button class="btn btn-primary btn-full" id="btn-registrar" onclick="solicitarPin()">🔐 Confirmar con contraseña</button>
         <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('scan-form-card').classList.add('hidden')">Cancelar</button>
       </div>
-
-      <!-- Producto nuevo desde escáner -->
       <div id="scan-alta-card" class="card hidden">
-        <div class="alta-header">
-          <div class="alta-icon">📦</div>
-          <div>
-            <div class="alta-title">Producto nuevo detectado</div>
-            <div class="alta-sub">Este código no existe. Llena los datos para darlo de alta en el sistema.</div>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Código (escaneado)</label><input class="input" type="text" id="alta-id" readonly style="background:var(--bg);font-family:'DM Mono',monospace"></div>
-          <div class="form-group"><label>Nombre del producto *</label><input class="input" type="text" id="alta-nombre" placeholder="Ej: Ácido sulfúrico 98%"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="alta-stock" placeholder="0" min="0"></div>
-          <div class="form-group"><label>Stock mínimo (alerta)</label><input class="input" type="number" id="alta-min" placeholder="0" min="0"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Unidad</label><select class="input" id="alta-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
-          <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="alta-prov" placeholder="Nombre del proveedor"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="alta-lote" placeholder="Ej: L-2025-04"></div>
-          <div class="form-group"><label>Fecha de caducidad</label><input class="input" type="date" id="alta-cad"></div>
-        </div>
+        <div class="alta-header"><div class="alta-icon">📦</div><div><div class="alta-title">Producto nuevo</div><div class="alta-sub">Llena los datos para darlo de alta.</div></div></div>
+        <div class="form-row"><div class="form-group"><label>Código</label><input class="input" type="text" id="alta-id" readonly style="background:var(--bg);font-family:'DM Mono',monospace"></div><div class="form-group"><label>Nombre *</label><input class="input" type="text" id="alta-nombre"></div></div>
+        <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="alta-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="alta-min" placeholder="0"></div></div>
+        <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="alta-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="alta-prov"></div></div>
+        <div class="form-row"><div class="form-group"><label>Lote</label><input class="input" type="text" id="alta-lote"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="alta-cad"></div></div>
+        <div class="form-row"><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="alta-ubicacion" placeholder="Ej: Pasillo A-3"></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="alta-precio" placeholder="0.00"></div></div>
         <button class="btn btn-primary btn-full" id="btn-guardar-alta" onclick="guardarProductoDesdeScanner()">✓ Dar de alta producto</button>
         <button class="btn btn-full" style="margin-top:6px" onclick="limpiarScanner()">Cancelar</button>
       </div>
@@ -209,18 +270,52 @@
 
     <!-- INVENTARIO -->
     <section id="tab-inventario" class="tab hidden">
-      <div class="page-header"><div class="page-title">Inventario</div><button class="btn btn-sm" onclick="cargarInventario()">↻ Actualizar</button></div>
-      <div class="card"><input class="input" type="text" placeholder="Buscar por nombre o código..." oninput="filtrarInv(this.value)" style="margin-bottom:10px"><div id="inv-lista"><div class="loading">Cargando...</div></div></div>
+      <div class="page-header"><div class="page-title">Inventario</div><button class="btn btn-sm" onclick="cargarInventario()">↻</button></div>
+      <div class="card">
+        <input class="input" type="text" placeholder="Buscar por nombre, código o ubicación..." oninput="filtrarInv(this.value)" style="margin-bottom:10px">
+        <div id="inv-lista"><div class="loading">Cargando...</div></div>
+      </div>
       <div id="inv-admin-panel" class="hidden">
         <button class="btn btn-primary btn-full" onclick="mostrarFormProducto()">+ Agregar producto manualmente</button>
         <div id="form-producto" class="card hidden" style="margin-top:12px">
           <div class="card-header">Nuevo producto</div>
-          <div class="form-row"><div class="form-group"><label>Código único</label><input class="input" type="text" id="np-id" placeholder="QM-008"></div><div class="form-group"><label>Nombre</label><input class="input" type="text" id="np-nombre" placeholder="Nombre del químico"></div></div>
+          <div class="form-row"><div class="form-group"><label>Código único</label><input class="input" type="text" id="np-id" placeholder="QM-008"></div><div class="form-group"><label>Nombre</label><input class="input" type="text" id="np-nombre"></div></div>
           <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="np-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="np-min" placeholder="0"></div></div>
-          <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option></select></div><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov" placeholder="Proveedor"></div></div>
-          <div class="form-row"><div class="form-group"><label>Lote inicial</label><input class="input" type="text" id="np-lote" placeholder="L-2025-01"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="np-cad"></div></div>
+          <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option></select></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="np-precio" placeholder="0.00"></div></div>
+          <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov"></div><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="np-ubicacion" placeholder="Pasillo A-3"></div></div>
+          <div class="form-row"><div class="form-group"><label>Lote</label><input class="input" type="text" id="np-lote"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="np-cad"></div></div>
+          <div class="form-row"><div class="form-group"><label>Peligrosidad GHS</label><select class="input" id="np-peligro"><option value="">Sin clasificar</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option><option value="ninguno">Ninguno</option></select></div><div class="form-group"><label>Clases GHS (coma)</label><input class="input" type="text" id="np-ghs" placeholder="inflamable,corrosivo"></div></div>
           <button class="btn btn-primary btn-full" onclick="guardarProducto()">Guardar producto</button>
           <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-producto').classList.add('hidden')">Cancelar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTEO FÍSICO -->
+    <section id="tab-conteo" class="tab hidden">
+      <div class="page-header"><div class="page-title">Inventario Físico</div></div>
+      <div class="card">
+        <div class="card-header">Conteo cíclico — <span id="conteo-almacen-nombre" style="color:var(--navy)"></span></div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Ingresa la cantidad física de cada producto. El sistema calculará las diferencias y ajustará el stock automáticamente.</p>
+        <button class="btn btn-primary btn-full" onclick="iniciarConteoFisico()">▶ Iniciar conteo físico</button>
+      </div>
+      <div id="conteo-form" class="hidden">
+        <div class="card">
+          <div class="card-header">Conteo en curso</div>
+          <div id="conteo-lista"></div>
+          <div class="form-group" style="margin-top:12px"><label>Nota del conteo</label><input class="input" type="text" id="conteo-nota" placeholder="Observaciones generales"></div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-primary" style="flex:1" id="btn-guardar-conteo" onclick="guardarConteoFisico()">Guardar conteo y ajustar stock</button>
+            <button class="btn" style="flex:1" onclick="cancelarConteo()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      <div id="conteo-resultado" class="hidden">
+        <div class="card">
+          <div class="card-header">Resultado del conteo</div>
+          <div class="metrics" id="conteo-resumen" style="margin-bottom:12px"></div>
+          <div id="conteo-diffs"></div>
+          <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="document.getElementById('conteo-resultado').classList.add('hidden')">Finalizar</button>
         </div>
       </div>
     </section>
@@ -230,7 +325,7 @@
       <div class="page-header"><div class="page-title">Movimientos</div></div>
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <select class="input" style="flex:1;min-width:120px" id="fil-tipo" onchange="filtrarMov()"><option value="">Todos los tipos</option><option value="entrada">Entradas</option><option value="salida">Salidas</option></select>
+          <select class="input" style="flex:1;min-width:120px" id="fil-tipo" onchange="filtrarMov()"><option value="">Todos</option><option value="entrada">Entradas</option><option value="salida">Salidas</option><option value="ajuste">Ajustes</option></select>
           <select class="input" style="flex:1;min-width:120px" id="fil-user" onchange="filtrarMov()"><option value="">Todos los usuarios</option></select>
         </div>
         <div id="mov-lista"><div class="loading">Cargando...</div></div>
@@ -241,10 +336,9 @@
     <section id="tab-reportes" class="tab hidden">
       <div class="page-header"><div class="page-title">Reportes</div></div>
       <div class="card">
-        <div class="card-header">Exportar datos</div>
         <div class="form-row"><div class="form-group"><label>Fecha inicio</label><input class="input" type="date" id="rep-inicio"></div><div class="form-group"><label>Fecha fin</label><input class="input" type="date" id="rep-fin"></div></div>
         <div class="form-group"><label>Tipo</label><select class="input" id="rep-tipo"><option value="movimientos">Movimientos</option><option value="inventario">Inventario actual</option><option value="alertas">Productos con alertas</option><option value="pedidos">Pedidos</option></select></div>
-        <div style="display:flex;gap:8px;margin-top:4px">
+        <div style="display:flex;gap:8px">
           <button class="btn btn-primary" style="flex:1" onclick="exportarExcel()">📊 Excel</button>
           <button class="btn btn-green" style="flex:1" onclick="exportarPDF()">📄 PDF</button>
         </div>
@@ -252,35 +346,79 @@
       <div class="card"><div class="card-header">Vista previa</div><div id="rep-preview"><div class="empty">Selecciona período y tipo</div></div></div>
     </section>
 
-    <!-- GRÁFICAS -->
-    <section id="tab-graficas" class="tab hidden">
-      <div class="page-header"><div class="page-title">Gráficas</div></div>
-      <div class="card"><div class="card-header">Movimientos últimos 14 días</div><canvas id="chart-movimientos" height="200"></canvas></div>
-      <div class="card"><div class="card-header">Top 5 productos más activos</div><canvas id="chart-productos" height="200"></canvas></div>
-      <div class="card"><div class="card-header">Stock actual vs mínimo</div><canvas id="chart-stock" height="220"></canvas></div>
-    </section>
-
     <!-- PEDIDOS -->
     <section id="tab-pedidos" class="tab hidden">
-      <div class="page-header"><div class="page-title">Pedidos</div><button class="btn btn-sm" onclick="cargarPedidos()">↻ Actualizar</button></div>
+      <div class="page-header"><div class="page-title">Pedidos</div><button class="btn btn-sm" onclick="cargarPedidos()">↻</button></div>
       <div class="card"><div id="ped-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormPedido()">+ Nuevo pedido</button></div>
       <div id="form-pedido" class="card hidden">
         <div class="card-header">Nuevo pedido</div>
-        <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="pp-prov"></div><div class="form-group"><label>Producto</label><input class="input" type="text" id="pp-prod"></div></div>
-        <div class="form-row"><div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pp-qty" placeholder="Ej: 100 L"></div><div class="form-group"><label>Fecha estimada</label><input class="input" type="date" id="pp-fecha"></div></div>
-        <button class="btn btn-primary btn-full" onclick="guardarPedido()">Crear pedido</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-pedido').classList.add('hidden')">Cancelar</button>
+        <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="pp-prov"></div><div class="form-group"><label>Fecha estimada</label><input class="input" type="date" id="pp-fecha"></div></div>
+        <div class="form-group"><label>Nota general</label><input class="input" type="text" id="pp-nota"></div>
+        <div style="margin:12px 0 8px;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Productos a pedir</div>
+        <div id="pp-productos-lista"></div>
+        <div class="form-row" style="margin-bottom:6px">
+          <div class="form-group"><label>Producto</label><input class="input" type="text" id="pp-prod-nombre" placeholder="Nombre del producto"></div>
+          <div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pp-prod-qty" placeholder="Ej: 100 L"></div>
+        </div>
+        <button class="btn btn-green btn-full" onclick="agregarProductoPedido()">+ Agregar producto</button>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-primary" style="flex:1" onclick="guardarPedido()">Crear pedido</button>
+          <button class="btn" style="flex:1" onclick="document.getElementById('form-pedido').classList.add('hidden');pedidoProductos=[]">Cancelar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROVEEDORES -->
+    <section id="tab-proveedores" class="tab hidden">
+      <div class="page-header"><div class="page-title">Proveedores</div></div>
+      <div id="modal-evaluar" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width:420px">
+          <div class="modal-title">⭐ Evaluar proveedor</div>
+          <div class="modal-sub" id="eval-prov-nombre" style="font-weight:600;color:var(--navy);margin-bottom:14px"></div>
+          <input type="hidden" id="eval-prov-id">
+          <div class="eval-score"><span class="eval-score-label">Puntualidad</span><div class="prov-stars" id="stars-puntualidad"></div></div>
+          <div class="eval-score"><span class="eval-score-label">Calidad</span><div class="prov-stars" id="stars-calidad"></div></div>
+          <div class="eval-score"><span class="eval-score-label">Precio</span><div class="prov-stars" id="stars-precio"></div></div>
+          <div class="form-group" style="margin-top:10px"><label>Pedido relacionado</label><input class="input" type="text" id="eval-pedido" placeholder="PED-001"></div>
+          <div class="form-group"><label>Comentario</label><textarea class="input" id="eval-comentario" rows="3" style="resize:vertical"></textarea></div>
+          <div style="display:flex;gap:8px"><button class="btn btn-full" onclick="cerrarEvaluar()">Cancelar</button><button class="btn btn-primary btn-full" onclick="guardarEvaluacion()">Guardar</button></div>
+        </div>
+      </div>
+      <div id="prov-lista-view">
+        <div class="card"><input class="input" type="text" placeholder="Buscar proveedor..." oninput="buscarProveedor(this.value)" style="margin-bottom:10px"><div id="prov-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormProveedor()">+ Agregar proveedor</button></div>
+        <div id="form-proveedor" class="card hidden">
+          <div class="card-header">Nuevo proveedor</div>
+          <div class="form-row"><div class="form-group"><label>Nombre *</label><input class="input" type="text" id="np-nombre-prov" placeholder="Nombre del proveedor"></div><div class="form-group"><label>RFC</label><input class="input" type="text" id="np-rfc"></div></div>
+          <div class="form-row"><div class="form-group"><label>Teléfono</label><input class="input" type="tel" id="np-telefono"></div><div class="form-group"><label>Correo</label><input class="input" type="email" id="np-correo"></div></div>
+          <div class="form-group"><label>Dirección</label><input class="input" type="text" id="np-direccion"></div>
+          <div class="form-group"><label>Productos que vende</label><input class="input" type="text" id="np-productos" placeholder="Ej: Ácidos, solventes..."></div>
+          <div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="guardarProveedor()">Guardar</button><button class="btn" style="flex:1" onclick="document.getElementById('form-proveedor').classList.add('hidden')">Cancelar</button></div>
+        </div>
+      </div>
+      <div id="prov-detalle-view" class="hidden"><div id="prov-detalle-content"></div></div>
+    </section>
+
+    <!-- ALMACENES -->
+    <section id="tab-almacenes" class="tab hidden">
+      <div class="page-header"><div class="page-title">Almacenes</div></div>
+      <div class="card"><div class="card-header">Almacenes registrados</div><div id="alm-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="document.getElementById('form-almacen').classList.remove('hidden')">+ Nuevo almacén</button></div>
+      <div id="form-almacen" class="card hidden">
+        <div class="card-header">Nuevo almacén</div>
+        <div class="form-group"><label>Nombre *</label><input class="input" type="text" id="alm-nombre" placeholder="Ej: Almacén Norte"></div>
+        <div class="form-group"><label>Dirección</label><input class="input" type="text" id="alm-dir" placeholder="Dirección"></div>
+        <div class="form-group"><label>Responsable</label><input class="input" type="text" id="alm-resp" placeholder="Nombre del responsable"></div>
+        <div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="guardarAlmacen()">Guardar</button><button class="btn" style="flex:1" onclick="document.getElementById('form-almacen').classList.add('hidden')">Cancelar</button></div>
       </div>
     </section>
 
     <!-- USUARIOS -->
     <section id="tab-usuarios" class="tab hidden">
-      <div class="page-header"><div class="page-title">Gestión de Usuarios</div></div>
-      <div class="card"><div class="card-header">Usuarios del sistema</div><div id="users-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormUsuario()">+ Agregar usuario</button></div>
+      <div class="page-header"><div class="page-title">Usuarios</div></div>
+      <div class="card"><div id="users-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormUsuario()">+ Agregar usuario</button></div>
       <div id="form-usuario" class="card hidden">
         <div class="card-header">Nuevo usuario</div>
-        <div class="form-row"><div class="form-group"><label>Nombre completo</label><input class="input" type="text" id="nu-nombre" placeholder="Juan López"></div><div class="form-group"><label>Correo</label><input class="input" type="email" id="nu-email" placeholder="juan@lasnaves.com"></div></div>
-        <div class="form-row"><div class="form-group"><label>Contraseña temporal</label><input class="input" type="text" id="nu-pass" placeholder="Mín. 8 caracteres"></div><div class="form-group"><label>Rol</label><select class="input" id="nu-rol"><option value="operador">Operador</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select></div></div>
+        <div class="form-row"><div class="form-group"><label>Nombre</label><input class="input" type="text" id="nu-nombre"></div><div class="form-group"><label>Correo</label><input class="input" type="email" id="nu-email"></div></div>
+        <div class="form-row"><div class="form-group"><label>Contraseña</label><input class="input" type="text" id="nu-pass" placeholder="Mín. 8 caracteres"></div><div class="form-group"><label>Rol</label><select class="input" id="nu-rol"><option value="operador">Operador</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select></div></div>
         <button class="btn btn-primary btn-full" onclick="crearUsuario()">Crear usuario</button>
         <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-usuario').classList.add('hidden')">Cancelar</button>
       </div>
@@ -290,12 +428,87 @@
     <section id="tab-auditoria" class="tab hidden">
       <div class="page-header"><div class="page-title">Auditoría</div></div>
       <div class="card">
-        <div class="card-header">Historial de cambios</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <select class="input" style="flex:1;min-width:130px" id="aud-tipo" onchange="filtrarAuditoria()"><option value="">Todos</option><option value="login">Inicios de sesión</option><option value="rol_cambio">Cambios de rol</option><option value="producto_nuevo">Productos nuevos</option><option value="movimiento">Movimientos</option></select>
+          <select class="input" style="flex:1;min-width:130px" id="aud-tipo" onchange="filtrarAuditoria()"><option value="">Todos</option><option value="login">Inicios de sesión</option><option value="rol_cambio">Cambios de rol</option><option value="producto_nuevo">Productos nuevos</option><option value="movimiento">Movimientos</option><option value="ajuste">Ajustes</option></select>
           <select class="input" style="flex:1;min-width:130px" id="aud-user" onchange="filtrarAuditoria()"><option value="">Todos los usuarios</option></select>
         </div>
         <div id="aud-lista"><div class="loading">Cargando...</div></div>
+      </div>
+    </section>
+
+    <!-- NOTIFICACIONES -->
+    <section id="tab-notificaciones" class="tab hidden">
+      <div class="page-header"><div class="page-title">Reportes automáticos</div></div>
+      <div class="card">
+        <div class="card-header">Contactos configurados</div>
+        <div id="notif-lista"><div class="loading">Cargando...</div></div>
+        <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormNotif()">+ Agregar contacto</button>
+      </div>
+      <div id="form-notif" class="card hidden">
+        <div class="card-header">Nuevo contacto</div>
+        <div class="form-row">
+          <div class="form-group"><label>Nombre</label><input class="input" type="text" id="nn-nombre" placeholder="Ej: Director General"></div>
+          <div class="form-group"><label>Correo electrónico</label><input class="input" type="email" id="nn-correo" placeholder="correo@empresa.com"></div>
+        </div>
+        <div style="margin:10px 0 6px;font-size:12px;font-weight:600;color:var(--text2)">¿Qué reportes recibe?</div>
+        <div class="check-row"><input type="checkbox" id="nn-inv" checked><label for="nn-inv">📦 Inventario completo (stock actual de todos los productos)</label></div>
+        <div class="check-row"><input type="checkbox" id="nn-mov" checked><label for="nn-mov">🔄 Movimientos de la semana (entradas y salidas)</label></div>
+        <div class="check-row"><input type="checkbox" id="nn-ale" checked><label for="nn-ale">⚠ Alertas activas (stock bajo y productos por caducar)</label></div>
+        <div style="margin:10px 0 6px;font-size:12px;font-weight:600;color:var(--text2)">¿Cuándo llega el reporte?</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Día de la semana</label>
+            <select class="input" id="nn-dia">
+              <option value="lunes">Lunes</option>
+              <option value="martes">Martes</option>
+              <option value="miércoles">Miércoles</option>
+              <option value="jueves">Jueves</option>
+              <option value="viernes">Viernes</option>
+              <option value="sábado">Sábado</option>
+              <option value="domingo">Domingo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Hora de envío</label>
+            <select class="input" id="nn-hora">
+              <option>06:00</option><option>07:00</option><option selected>08:00</option>
+              <option>09:00</option><option>10:00</option><option>12:00</option>
+              <option>14:00</option><option>16:00</option><option>18:00</option><option>20:00</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-primary" style="flex:1" onclick="guardarNotifConfig()">Guardar configuración</button>
+          <button class="btn" style="flex:1" onclick="document.getElementById('form-notif').classList.add('hidden')">Cancelar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESPALDO -->
+    <section id="tab-respaldo" class="tab hidden">
+      <div class="page-header"><div class="page-title">Respaldo de datos</div></div>
+      <div class="card">
+        <div class="card-header">Descargar respaldo completo</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px">El respaldo incluye inventario, movimientos, pedidos y proveedores en un archivo Excel con múltiples hojas.</p>
+        <div class="respaldo-btns">
+          <div class="respaldo-card" onclick="descargarRespaldoExcel()">
+            <div class="respaldo-icon">📊</div>
+            <div class="respaldo-title">Descargar Excel</div>
+            <div class="respaldo-sub">Descarga inmediata al dispositivo</div>
+          </div>
+          <div class="respaldo-card" onclick="abrirGuardarEnDrive()">
+            <div class="respaldo-icon">💾</div>
+            <div class="respaldo-title">Guardar en Drive</div>
+            <div class="respaldo-sub">Descarga y sube a Google Drive</div>
+          </div>
+        </div>
+        <div style="background:var(--blue-bg);border-radius:var(--radius-sm);padding:12px;font-size:12px;color:var(--blue)">
+          💡 <strong>Recomendación:</strong> Configura un reporte semanal en la pestaña "Notif." para recibir automáticamente el respaldo por correo cada semana sin tener que hacerlo manualmente.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Historial de respaldos</div>
+        <div id="respaldo-historial"><div class="empty">Los respaldos descargados aparecerán aquí</div></div>
       </div>
     </section>
 
@@ -309,13 +522,19 @@
 </div>
 
 <div id="toast" class="toast hidden"></div>
-
 <script src="src/lib/config.js"></script>
 <script src="src/lib/api.js"></script>
 <script src="src/lib/offline.js"></script>
+<script src="src/lib/almacenes.js"></script>
+<script src="src/lib/sds.js"></script>
+<script src="src/lib/qr.js"></script>
 <script src="src/lib/scanner.js"></script>
+<script src="src/lib/inventario_fisico.js"></script>
 <script src="src/lib/charts.js"></script>
 <script src="src/lib/reports.js"></script>
+<script src="src/lib/proveedores.js"></script>
+<script src="src/lib/dashboard_dir.js"></script>
+<script src="src/lib/notificaciones.js"></script>
 <script src="src/lib/app.js"></script>
 </body>
 </html>

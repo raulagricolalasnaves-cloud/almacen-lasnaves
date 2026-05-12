@@ -1,6 +1,6 @@
 // =====================================================
-//  APP v5 — Las Naves Agrícola
-//  Con evidencia fotográfica en movimientos
+//  APP v9 — Las Naves Agrícola
+//  Seguridad empresarial + todas las funciones
 // =====================================================
 
 let currentUser    = null;
@@ -8,7 +8,32 @@ let currentProfile = null;
 let todosMovimientos = [];
 let todosProductos   = [];
 let todaAuditoria    = [];
+let productoEntrada  = null;
+let fotoEntrada      = null;
+let productoSalida   = null;
+let fotoSalida       = null;
+let pinCallback      = null;
+let pedidoProductos  = [];
 
+// ── SEGURIDAD: timeout de sesión (30 min inactividad) ──
+let sessionTimer = null;
+const SESSION_TIMEOUT = 30 * 60 * 1000;
+
+function resetSessionTimer() {
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(async () => {
+    toast('Sesión cerrada por inactividad');
+    await API.signOut();
+  }, SESSION_TIMEOUT);
+}
+
+['click','keydown','touchstart','scroll'].forEach(ev =>
+  document.addEventListener(ev, resetSessionTimer, { passive: true })
+);
+
+// ── SEGURIDAD: bloquear devtools en producción ──────────
+// (comentado para desarrollo; descomentar en producción)
+// document.addEventListener('contextmenu', e => e.preventDefault());
 
 // ── INIT ──────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -23,8 +48,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (event === 'SIGNED_IN' && session) {
       currentUser = session.user;
       await cargarPerfil();
-      API.addAuditoria({ tipo:'login', descripcion:'Inicio de sesión', usuario_id: session.user.id, usuario_nombre: currentProfile?.nombre || session.user.email });
+      resetSessionTimer();
+      API.addAuditoria({
+        tipo:'login',
+        descripcion:'Inicio de sesión exitoso',
+        usuario_id: session.user.id,
+        usuario_nombre: currentProfile?.nombre || session.user.email,
+        metadata: { ip: 'web', timestamp: new Date().toISOString() }
+      });
     } else if (event === 'SIGNED_OUT') {
+      clearTimeout(sessionTimer);
       currentUser = null; currentProfile = null; mostrarLogin();
     }
   });
@@ -37,23 +70,34 @@ async function cargarPerfil() {
 
 // ── AUTH ──────────────────────────────────────────────
 async function doLogin() {
-  const email = document.getElementById('l-email').value.trim();
+  const email = document.getElementById('l-email').value.trim().toLowerCase();
   const pass  = document.getElementById('l-pass').value;
   const btn   = document.getElementById('btn-login');
   const err   = document.getElementById('login-error');
   if (!email || !pass) { err.textContent='Ingresa tu correo y contraseña'; err.style.color='#c0392b'; return; }
+  // Validar formato de email
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent='Correo inválido'; err.style.color='#c0392b'; return; }
   btn.disabled = true;
   document.getElementById('login-label').textContent = 'Verificando...';
   err.textContent = '';
   try { await API.signIn(email, pass); }
-  catch { err.textContent='Correo o contraseña incorrectos'; err.style.color='#c0392b'; btn.disabled=false; document.getElementById('login-label').textContent='Iniciar sesión'; }
+  catch {
+    err.textContent='Correo o contraseña incorrectos';
+    err.style.color='#c0392b';
+    btn.disabled=false;
+    document.getElementById('login-label').textContent='Iniciar sesión';
+  }
 }
 
-async function doLogout() { await API.signOut(); }
+async function doLogout() {
+  await API.addAuditoria({ tipo:'login', descripcion:'Cierre de sesión', usuario_id:currentUser?.id, usuario_nombre:currentProfile?.nombre||currentUser?.email });
+  await API.signOut();
+}
 
 function mostrarLogin() {
   document.getElementById('screen-app').classList.add('hidden');
   document.getElementById('screen-login').classList.remove('hidden');
+  document.getElementById('screen-login').classList.add('active');
   document.getElementById('l-pass').value = '';
   document.getElementById('login-error').textContent = '';
   document.getElementById('btn-login').disabled = false;
@@ -61,6 +105,7 @@ function mostrarLogin() {
 }
 
 function mostrarApp() {
+  document.getElementById('screen-login').classList.remove('active');
   document.getElementById('screen-login').classList.add('hidden');
   document.getElementById('screen-app').classList.remove('hidden');
   const nombre = currentProfile?.nombre || currentUser?.email || '—';
@@ -69,7 +114,7 @@ function mostrarApp() {
   document.getElementById('topbar-role').textContent = rol;
   document.getElementById('topbar-avatar').textContent = nombre.substring(0,2).toUpperCase();
   aplicarPermisosTabs(rol);
-  cargarDashboard();
+  iniciarAlmacenes().then(() => cargarDashboard());
 }
 
 function aplicarPermisosTabs(rol) {
@@ -79,6 +124,9 @@ function aplicarPermisosTabs(rol) {
   });
   const p = document.getElementById('inv-admin-panel');
   if (p) { if (['admin','supervisor'].includes(rol)) p.classList.remove('hidden'); else p.classList.add('hidden'); }
+  // Mostrar/ocultar barra de almacén
+  const bar = document.getElementById('almacen-bar');
+  if (bar) bar.style.display = ['admin','supervisor'].includes(rol) ? '' : 'none';
 }
 
 // ── NAVEGACIÓN ────────────────────────────────────────
@@ -88,19 +136,28 @@ function goTo(tab, btn) {
   document.getElementById('tab-' + tab).classList.remove('hidden');
   btn.classList.add('active');
   if (typeof stopScanner === 'function') stopScanner();
-  ({ dashboard: cargarDashboard, inventario: cargarInventario, movimientos: cargarMovimientos,
-     pedidos: cargarPedidos, usuarios: cargarUsuarios, alertas: cargarAlertas,
-     graficas: cargarGraficas, auditoria: cargarAuditoria })[tab]?.();
+  const loaders = {
+    dashboard: cargarDashboard, inventario: cargarInventario,
+    movimientos: cargarMovimientos, pedidos: cargarPedidos,
+    usuarios: cargarUsuarios, alertas: cargarAlertas,
+    auditoria: cargarAuditoria, proveedores: cargarProveedores,
+    almacenes: cargarAlmacenes, dir: cargarDashboardDir,
+    entradas: iniciarEntradas, salidas: iniciarSalidas,
+    conteo: () => { document.getElementById('conteo-almacen-nombre').textContent = almacenActivo?.nombre || ''; },
+    notificaciones: cargarNotificaciones,
+    respaldo: () => {},
+  };
+  loaders[tab]?.();
 }
 
 // ── DASHBOARD ─────────────────────────────────────────
 async function cargarDashboard() {
   try {
-    const [prods, movs, peds] = await Promise.all([API.getProductos(), API.getMovimientos(6), API.getPedidos()]);
+    const [prods, movs, peds] = await Promise.all([API.getProductos(almacenActivo?.id), API.getMovimientos(6), API.getPedidos()]);
     todosProductos = prods;
     const hoy  = new Date();
     const bajo = prods.filter(p => Number(p.stock) <= Number(p.min)).length;
-    const cad  = prods.filter(p => p.caducidad && Math.floor((new Date(p.caducidad)-hoy)/86400000) < CONFIG.DIAS_ALERTA_CADUCIDAD).length;
+    const cad  = prods.filter(p => p.caducidad && Math.floor((new Date(p.caducidad)-hoy)/86400000) < 90).length;
     const act  = peds.filter(p => p.estado !== 'Entregado').length;
     document.getElementById('m-prod').textContent = prods.length;
     document.getElementById('m-bajo').textContent = bajo;
@@ -111,213 +168,317 @@ async function cargarDashboard() {
     dot.textContent = cnt;
     cnt > 0 ? dot.classList.remove('hidden') : dot.classList.add('hidden');
     document.getElementById('dash-movs').innerHTML = movs.length ? movs.map(renderMovItem).join('') : '<div class="empty">Sin movimientos aún</div>';
-  } catch {
-    document.getElementById('dash-movs').innerHTML = '<div class="empty">Error al cargar. Verifica tu configuración.</div>';
-  }
+  } catch { document.getElementById('dash-movs').innerHTML = '<div class="empty">Error al cargar</div>'; }
 }
 
-// ── MOVIMIENTOS ───────────────────────────────────────
-async function cargarMovimientos() {
-  document.getElementById('mov-lista').innerHTML = '<div class="loading">Cargando...</div>';
+// ── ENTRADAS ──────────────────────────────────────────
+function iniciarEntradas() {
+  productoEntrada = null; fotoEntrada = null;
+  document.getElementById('ent-buscar').value = '';
+  document.getElementById('ent-resultados').innerHTML = '';
+  document.getElementById('ent-form-card').classList.add('hidden');
+}
+
+async function buscarProductoEntrada(q) {
+  if (q.length < 2) { document.getElementById('ent-resultados').innerHTML = ''; return; }
+  if (!todosProductos.length) todosProductos = await API.getProductos(almacenActivo?.id);
+  const f = todosProductos.filter(p => p.nombre.toLowerCase().includes(q.toLowerCase()) || p.id.toLowerCase().includes(q.toLowerCase()));
+  document.getElementById('ent-resultados').innerHTML = f.length
+    ? f.map(p => `<div class="search-result-item" onclick="seleccionarProductoEntrada('${p.id}')">
+        <div class="search-result-name">${p.nombre} ${p.peligrosidad?`<span style="color:var(--red);font-size:11px">⚠ ${p.peligrosidad}</span>`:''}</div>
+        <div class="search-result-meta">${p.id} · Stock: ${p.stock} ${p.unidad||''}${p.ubicacion?' · 📍 '+p.ubicacion:''}</div>
+      </div>`).join('')
+    : '<div class="empty" style="padding:12px">Sin resultados</div>';
+}
+
+async function seleccionarProductoEntrada(id) {
+  productoEntrada = await API.getProducto(id);
+  if (!productoEntrada) return;
+  document.getElementById('ent-resultados').innerHTML = '';
+  document.getElementById('ent-buscar').value = productoEntrada.nombre;
+  document.getElementById('ent-prod-nombre').textContent = productoEntrada.nombre;
+  document.getElementById('ent-prod-id').textContent = productoEntrada.id;
+  document.getElementById('ent-prod-stock').textContent = productoEntrada.stock + ' ' + (productoEntrada.unidad||'');
+  // Mostrar banner SDS si tiene peligrosidad
+  const banner = document.getElementById('ent-sds-banner');
+  if (productoEntrada.peligrosidad && productoEntrada.peligrosidad !== 'ninguno') {
+    banner.innerHTML = `<div class="sds-banner ${productoEntrada.peligrosidad}">⚠ Producto de peligrosidad <strong>${productoEntrada.peligrosidad}</strong>${productoEntrada.clase_ghs?' — '+productoEntrada.clase_ghs:''} <button class="btn btn-sm" onclick="verSDS(productoEntrada)">Ver SDS</button></div>`;
+  } else { banner.innerHTML = ''; }
+  if (productoEntrada.unidad) { const sel=document.getElementById('ent-unit'); [...sel.options].forEach(o=>{if(o.value===productoEntrada.unidad)sel.value=o.value;}); }
+  document.getElementById('ent-qty').value = '';
+  document.getElementById('ent-lote').value = productoEntrada.lote || '';
+  document.getElementById('ent-prov').value = productoEntrada.proveedor || '';
+  document.getElementById('ent-nota').value = '';
+  resetFotoEntrada();
+  document.getElementById('ent-form-card').classList.remove('hidden');
+  document.getElementById('ent-form-card').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function resetFotoEntrada() {
+  fotoEntrada = null;
+  const prev=document.getElementById('ent-foto-preview'); const inp=document.getElementById('ent-foto-input');
+  if(prev){prev.src='';prev.classList.add('hidden');} if(inp)inp.value='';
+  const st=document.getElementById('ent-foto-status'); if(st){st.textContent='Sin foto';st.className='foto-status sin-foto';}
+}
+
+function onFotoEntrada(input) {
+  const file=input.files[0]; if(!file)return;
+  if(!file.type.startsWith('image/')){toast('Solo imágenes');return;}
+  if(file.size>5*1024*1024){toast('Máximo 5MB');return;}
+  fotoEntrada=file;
+  const r=new FileReader(); r.onload=e=>{const p=document.getElementById('ent-foto-preview');p.src=e.target.result;p.classList.remove('hidden');}; r.readAsDataURL(file);
+  const st=document.getElementById('ent-foto-status'); st.textContent='✓ Foto lista'; st.className='foto-status con-foto';
+}
+
+function solicitarPinEntrada() {
+  if(!productoEntrada){toast('Selecciona un producto');return;}
+  const qty=Number(document.getElementById('ent-qty').value);
+  if(!qty||qty<=0){toast('Ingresa una cantidad válida');return;}
+  if(!fotoEntrada){toast('⚠ Debes adjuntar la foto del recibo');return;}
+  pinCallback=registrarEntrada; abrirPin();
+}
+
+async function registrarEntrada() {
+  const qty=Number(document.getElementById('ent-qty').value);
+  const nuevoStock=Number(productoEntrada.stock)+qty;
+  const unit=document.getElementById('ent-unit').value;
+  let fotoUrl=null;
+  try { const ext=fotoEntrada.name.split('.').pop(); fotoUrl=await API.subirFoto(`entrada/${new Date().toISOString().split('T')[0]}/${crypto.randomUUID()}.${ext}`,fotoEntrada); }
+  catch{toast('Error al subir foto');return;}
+  const mov={tipo:'entrada',id_producto:productoEntrada.id,nombre:productoEntrada.nombre,cantidad:qty,unidad:unit,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,destino:document.getElementById('ent-prov').value,lote:document.getElementById('ent-lote').value,caducidad_lote:document.getElementById('ent-cad').value,nota:document.getElementById('ent-nota').value,stock_resultante:nuevoStock,foto_evidencia:fotoUrl,almacen_id:almacenActivo?.id,created_at:new Date().toISOString()};
   try {
-    todosMovimientos = await API.getMovimientos(100);
-    const users = [...new Set(todosMovimientos.map(m => m.usuario_nombre).filter(Boolean))];
-    const sel = document.getElementById('fil-user');
-    sel.innerHTML = '<option value="">Todos los usuarios</option>' + users.map(u=>`<option>${u}</option>`).join('');
-    filtrarMov();
-  } catch { document.getElementById('mov-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
+    await Promise.all([API.addMovimiento(mov),API.updateStock(productoEntrada.id,nuevoStock)]);
+    await API.addAuditoria({tipo:'movimiento',descripcion:`Entrada de ${qty} ${unit} de ${productoEntrada.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{producto:productoEntrada.id,cantidad:qty,tipo:'entrada',nuevo_stock:nuevoStock}});
+    toast(`✓ Entrada registrada — nuevo stock: ${nuevoStock} ${unit}`);
+    iniciarEntradas(); todosProductos=[];
+  } catch{toast('Error al guardar');}
 }
 
-function filtrarMov() {
-  const tipo = document.getElementById('fil-tipo').value;
-  const user = document.getElementById('fil-user').value;
-  const f = todosMovimientos.filter(m => (!tipo||m.tipo===tipo) && (!user||m.usuario_nombre===user));
-  document.getElementById('mov-lista').innerHTML = f.length ? f.map(renderMovItem).join('') : '<div class="empty">Sin movimientos</div>';
+function cancelarEntrada(){document.getElementById('ent-form-card').classList.add('hidden');productoEntrada=null;fotoEntrada=null;}
+
+// ── SALIDAS ───────────────────────────────────────────
+function iniciarSalidas() {
+  productoSalida=null;fotoSalida=null;
+  document.getElementById('sal-buscar').value='';
+  document.getElementById('sal-resultados').innerHTML='';
+  document.getElementById('sal-form-card').classList.add('hidden');
 }
 
-function renderMovItem(m) {
-  const signo = m.tipo === 'entrada' ? '+' : '−';
-  const fecha = m.created_at ? new Date(m.created_at).toLocaleString('es-MX') : '—';
-  const fotoHtml = m.foto_evidencia
-    ? `<div class="mov-foto"><a href="#" onclick="verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale de entrega'}</a></div>`
-    : `<div class="mov-foto" style="color:var(--text3);font-size:11px">Sin evidencia fotográfica</div>`;
-  return `<div class="mov-item">
-    <div class="mov-dot ${m.tipo}">${m.tipo==='entrada'?'↓':'↑'}</div>
-    <div class="mov-body">
-      <div class="mov-name">${m.nombre}</div>
-      <div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>
-      ${fotoHtml}
-    </div>
-    <div class="mov-qty ${m.tipo}">${signo}${m.cantidad} ${m.unidad||''}</div>
-  </div>`;
+async function buscarProductoSalida(q) {
+  if(q.length<2){document.getElementById('sal-resultados').innerHTML='';return;}
+  if(!todosProductos.length)todosProductos=await API.getProductos(almacenActivo?.id);
+  const f=todosProductos.filter(p=>p.nombre.toLowerCase().includes(q.toLowerCase())||p.id.toLowerCase().includes(q.toLowerCase()));
+  document.getElementById('sal-resultados').innerHTML=f.length
+    ?f.map(p=>`<div class="search-result-item" onclick="seleccionarProductoSalida('${p.id}')">
+        <div class="search-result-name">${p.nombre} ${p.peligrosidad&&p.peligrosidad!=='ninguno'?`<span style="color:var(--red);font-size:11px">⚠ ${p.peligrosidad}</span>`:''}</div>
+        <div class="search-result-meta">${p.id} · Stock: <strong>${p.stock} ${p.unidad||''}</strong>${Number(p.stock)<=Number(p.min)?' <span style="color:var(--red)">⚠ Stock bajo</span>':''}${p.ubicacion?' · 📍 '+p.ubicacion:''}</div>
+      </div>`).join('')
+    :'<div class="empty" style="padding:12px">Sin resultados</div>';
 }
 
-// ── VISOR DE FOTO ─────────────────────────────────────
-function verFoto(url) {
-  const modal = document.getElementById('foto-modal');
-  const img   = document.getElementById('foto-modal-img');
-  if (!modal || !img) return;
-  img.src = url;
-  modal.classList.remove('hidden');
+async function seleccionarProductoSalida(id) {
+  productoSalida=await API.getProducto(id);if(!productoSalida)return;
+  document.getElementById('sal-resultados').innerHTML='';
+  document.getElementById('sal-buscar').value=productoSalida.nombre;
+  document.getElementById('sal-prod-nombre').textContent=productoSalida.nombre;
+  document.getElementById('sal-prod-id').textContent=productoSalida.id;
+  document.getElementById('sal-prod-stock').textContent=productoSalida.stock+' '+(productoSalida.unidad||'');
+  const banner=document.getElementById('sal-sds-banner');
+  if(productoSalida.peligrosidad&&productoSalida.peligrosidad!=='ninguno'){
+    banner.innerHTML=`<div class="sds-banner ${productoSalida.peligrosidad}">⚠ Producto de peligrosidad <strong>${productoSalida.peligrosidad}</strong> <button class="btn btn-sm" onclick="verSDS(productoSalida)">Ver SDS</button></div>`;
+  }else{banner.innerHTML='';}
+  if(productoSalida.unidad){const sel=document.getElementById('sal-unit');[...sel.options].forEach(o=>{if(o.value===productoSalida.unidad)sel.value=o.value;});}
+  document.getElementById('sal-qty').value='';document.getElementById('sal-dest').value='';document.getElementById('sal-nota').value='';
+  resetFotoSalida();
+  document.getElementById('sal-form-card').classList.remove('hidden');
+  document.getElementById('sal-form-card').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-function cerrarFotoModal() {
-  document.getElementById('foto-modal')?.classList.add('hidden');
-  const img = document.getElementById('foto-modal-img');
-  if (img) img.src = '';
+function resetFotoSalida(){fotoSalida=null;const prev=document.getElementById('sal-foto-preview');const inp=document.getElementById('sal-foto-input');if(prev){prev.src='';prev.classList.add('hidden');}if(inp)inp.value='';const st=document.getElementById('sal-foto-status');if(st){st.textContent='Sin foto';st.className='foto-status sin-foto';}}
+
+function onFotoSalida(input){const file=input.files[0];if(!file)return;if(!file.type.startsWith('image/')){toast('Solo imágenes');return;}if(file.size>5*1024*1024){toast('Máximo 5MB');return;}fotoSalida=file;const r=new FileReader();r.onload=e=>{const p=document.getElementById('sal-foto-preview');p.src=e.target.result;p.classList.remove('hidden');};r.readAsDataURL(file);const st=document.getElementById('sal-foto-status');st.textContent='✓ Foto lista';st.className='foto-status con-foto';}
+
+function solicitarPinSalida(){if(!productoSalida){toast('Selecciona un producto');return;}const qty=Number(document.getElementById('sal-qty').value);if(!qty||qty<=0){toast('Ingresa una cantidad válida');return;}if(qty>Number(productoSalida.stock)){toast(`Stock insuficiente. Solo hay ${productoSalida.stock} ${productoSalida.unidad||''}`);return;}if(!fotoSalida){toast('⚠ Debes adjuntar la foto del vale de entrega');return;}pinCallback=registrarSalida;abrirPin();}
+
+async function registrarSalida(){
+  const qty=Number(document.getElementById('sal-qty').value);const nuevoStock=Number(productoSalida.stock)-qty;const unit=document.getElementById('sal-unit').value;
+  let fotoUrl=null;
+  try{const ext=fotoSalida.name.split('.').pop();fotoUrl=await API.subirFoto(`salida/${new Date().toISOString().split('T')[0]}/${crypto.randomUUID()}.${ext}`,fotoSalida);}
+  catch{toast('Error al subir foto');return;}
+  const mov={tipo:'salida',id_producto:productoSalida.id,nombre:productoSalida.nombre,cantidad:qty,unidad:unit,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,destino:document.getElementById('sal-dest').value,lote:productoSalida.lote,caducidad_lote:productoSalida.caducidad,nota:document.getElementById('sal-nota').value,stock_resultante:nuevoStock,foto_evidencia:fotoUrl,almacen_id:almacenActivo?.id,created_at:new Date().toISOString()};
+  try{await Promise.all([API.addMovimiento(mov),API.updateStock(productoSalida.id,nuevoStock)]);await API.addAuditoria({tipo:'movimiento',descripcion:`Salida de ${qty} ${unit} de ${productoSalida.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{producto:productoSalida.id,cantidad:qty,tipo:'salida',nuevo_stock:nuevoStock}});toast(`✓ Salida registrada — nuevo stock: ${nuevoStock} ${unit}`);iniciarSalidas();todosProductos=[];}
+  catch{toast('Error al guardar');}
+}
+
+function cancelarSalida(){document.getElementById('sal-form-card').classList.add('hidden');productoSalida=null;fotoSalida=null;}
+
+// ── PIN MODAL ─────────────────────────────────────────
+function abrirPin(){document.getElementById('pin-pass').value='';document.getElementById('pin-error').textContent='';document.getElementById('pin-modal').classList.remove('hidden');document.getElementById('pin-pass').focus();}
+function cancelPin(){document.getElementById('pin-modal').classList.add('hidden');pinCallback=null;}
+async function confirmPin(){
+  const pass=document.getElementById('pin-pass').value;
+  if(!pass){document.getElementById('pin-error').textContent='Ingresa tu contraseña';return;}
+  document.getElementById('pin-error').textContent='Verificando...';
+  const ok=await API.verificarPassword(pass);
+  if(!ok){document.getElementById('pin-error').textContent='Contraseña incorrecta';return;}
+  document.getElementById('pin-modal').classList.add('hidden');
+  if(pinCallback){const cb=pinCallback;pinCallback=null;await cb();}
 }
 
 // ── INVENTARIO ────────────────────────────────────────
-async function cargarInventario() {
-  document.getElementById('inv-lista').innerHTML = '<div class="loading">Cargando...</div>';
-  try { todosProductos = await API.getProductos(); renderInventario(todosProductos); }
-  catch { document.getElementById('inv-lista').innerHTML = '<div class="empty">Error al cargar</div>'; }
+async function cargarInventario(){
+  document.getElementById('inv-lista').innerHTML='<div class="loading">Cargando...</div>';
+  try{todosProductos=await API.getProductos(almacenActivo?.id);renderInventario(todosProductos);}
+  catch{document.getElementById('inv-lista').innerHTML='<div class="empty">Error al cargar</div>';}
 }
 
-function renderInventario(lista) {
-  const hoy = new Date();
-  document.getElementById('inv-lista').innerHTML = lista.length
-    ? lista.map(p => {
-        const sN=Number(p.stock), mN=Number(p.min);
-        const dias=p.caducidad?Math.floor((new Date(p.caducidad)-hoy)/86400000):null;
-        let badge='badge-ok', bt='OK';
-        if(sN<=mN){badge='badge-danger';bt='Stock bajo';}
-        else if(dias!==null&&dias<CONFIG.DIAS_ALERTA_CADUCIDAD){badge='badge-warn';bt='Por caducar';}
-        return `<div class="inv-item"><div><div class="inv-name">${p.nombre}</div><div class="inv-sub">${p.id} · Lote: ${p.lote||'—'} · Cad: ${p.caducidad||'—'}</div></div><div class="inv-right"><div class="inv-stock">${p.stock} <small>${p.unidad||''}</small></div><span class="badge ${badge}">${bt}</span></div></div>`;
-      }).join('')
-    : '<div class="empty">Sin productos registrados</div>';
+function renderInventario(lista){
+  const hoy=new Date();const esAdmin=['admin','supervisor'].includes(currentProfile?.rol);
+  // Calcular valor total
+  const valorTotal=lista.reduce((s,p)=>s+(Number(p.stock)*Number(p.precio_unitario||0)),0);
+  const valorHtml=valorTotal>0?`<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px;background:var(--bg);border-radius:var(--radius-sm)">💰 Valor total del inventario: <strong>$${valorTotal.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>`:'';
+  document.getElementById('inv-lista').innerHTML=valorHtml+(lista.length?lista.map(p=>{
+    const sN=Number(p.stock),mN=Number(p.min);const dias=p.caducidad?Math.floor((new Date(p.caducidad)-hoy)/86400000):null;
+    let badge='badge-ok',bt='OK';if(sN<=mN){badge='badge-danger';bt='Stock bajo';}else if(dias!==null&&dias<90){badge='badge-warn';bt='Por caducar';}
+    const peligroBadge=p.peligrosidad&&p.peligrosidad!=='ninguno'?`<span class="badge badge-danger" style="font-size:10px">⚠ ${p.peligrosidad}</span>`:'';
+    return`<div class="inv-item" style="flex-direction:column;align-items:flex-start">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div class="inv-name">${p.nombre} ${peligroBadge}</div>
+          <div class="inv-sub">${p.id}${p.ubicacion?' · 📍 '+p.ubicacion:''}${p.lote?' · Lote: '+p.lote:''}${p.caducidad?' · Cad: '+p.caducidad:''}</div>
+          ${p.precio_unitario?`<div style="font-size:11px;color:var(--text3)">$${Number(p.precio_unitario).toFixed(2)} c/u · Valor: $${(sN*Number(p.precio_unitario)).toFixed(2)}</div>`:''}
+        </div>
+        <div class="inv-right"><div class="inv-stock">${p.stock} <small>${p.unidad||''}</small></div><span class="badge ${badge}">${bt}</span></div>
+      </div>
+      ${esAdmin?`<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="mostrarAjuste('${p.id}','${p.nombre.replace(/'/g,"\\'")}',${p.stock},'${p.unidad||''}')">✏ Ajustar stock</button>
+        <button class="btn btn-sm" onclick="verSDS(${JSON.stringify(p).replace(/"/g,'&quot;')})">🛡 SDS</button>
+        <button class="btn btn-sm" onclick="mostrarEtiquetaQR(${JSON.stringify(p).replace(/"/g,'&quot;')})">🏷 QR</button>
+      </div>`:''}
+    </div>`;
+  }).join(''):'<div class="empty">Sin productos registrados</div>');
 }
 
-function filtrarInv(q) {
-  renderInventario(todosProductos.filter(p =>
-    p.nombre.toLowerCase().includes(q.toLowerCase()) || p.id.toLowerCase().includes(q.toLowerCase())
-  ));
+function filtrarInv(q){renderInventario(todosProductos.filter(p=>p.nombre.toLowerCase().includes(q.toLowerCase())||p.id.toLowerCase().includes(q.toLowerCase())||(p.ubicacion||'').toLowerCase().includes(q.toLowerCase())));}
+
+function mostrarFormProducto(){const f=document.getElementById('form-producto');f.classList.remove('hidden');f.scrollIntoView({behavior:'smooth'});}
+
+async function guardarProducto(){
+  const prod={id:document.getElementById('np-id').value.trim(),nombre:document.getElementById('np-nombre').value.trim(),stock:Number(document.getElementById('np-stock').value)||0,min:Number(document.getElementById('np-min').value)||0,unidad:document.getElementById('np-unit').value,proveedor:document.getElementById('np-prov').value.trim(),lote:document.getElementById('np-lote').value.trim(),caducidad:document.getElementById('np-cad').value,ubicacion:document.getElementById('np-ubicacion').value.trim(),precio_unitario:Number(document.getElementById('np-precio').value)||0,peligrosidad:document.getElementById('np-peligro').value,clase_ghs:document.getElementById('np-ghs').value.trim(),almacen_id:almacenActivo?.id};
+  if(!prod.id||!prod.nombre){toast('Completa código y nombre');return;}
+  try{await API.addProducto(prod);await API.addAuditoria({tipo:'producto_nuevo',descripcion:`Producto agregado: ${prod.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{id:prod.id}});toast('Producto guardado');document.getElementById('form-producto').classList.add('hidden');cargarInventario();}
+  catch(e){toast('Error: '+e.message);}
 }
 
-function mostrarFormProducto() {
-  const f = document.getElementById('form-producto');
-  f.classList.remove('hidden'); f.scrollIntoView({behavior:'smooth'});
+function mostrarAjuste(id,nombre,stockActual,unidad){
+  const nuevoStock=prompt(`Ajustar stock de "${nombre}"\nStock actual: ${stockActual} ${unidad}\n\nIngresa el nuevo stock total:`);
+  if(nuevoStock===null)return;const n=Number(nuevoStock);if(isNaN(n)||n<0){toast('Número inválido');return;}
+  pinCallback=async()=>{
+    try{
+      await API.updateStock(id,n);
+      const diff=n-stockActual;
+      if(Math.abs(diff)>0){const mov={tipo:diff>=0?'entrada':'salida',id_producto:id,nombre,cantidad:Math.abs(diff),unidad,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,destino:'Ajuste de inventario',nota:`Ajuste manual: ${stockActual} → ${n} ${unidad}`,stock_resultante:n,almacen_id:almacenActivo?.id,created_at:new Date().toISOString()};await API.addMovimiento(mov);}
+      await API.addAuditoria({tipo:'ajuste',descripcion:`Ajuste de stock: ${nombre} ${stockActual}→${n} ${unidad}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email});
+      toast(`✓ Stock ajustado a ${n} ${unidad}`);cargarInventario();
+    }catch(e){toast('Error: '+e.message);}
+  };
+  abrirPin();
 }
 
-async function guardarProducto() {
-  const prod = { id:document.getElementById('np-id').value.trim(), nombre:document.getElementById('np-nombre').value.trim(), stock:Number(document.getElementById('np-stock').value)||0, min:Number(document.getElementById('np-min').value)||0, unidad:document.getElementById('np-unit').value, proveedor:document.getElementById('np-prov').value.trim(), lote:document.getElementById('np-lote').value.trim(), caducidad:document.getElementById('np-cad').value };
-  if (!prod.id||!prod.nombre) { toast('Completa código y nombre'); return; }
-  try {
-    await API.addProducto(prod);
-    await API.addAuditoria({tipo:'producto_nuevo',descripcion:`Producto agregado: ${prod.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{id:prod.id}});
-    toast('Producto guardado'); document.getElementById('form-producto').classList.add('hidden'); cargarInventario();
-  } catch(e) { toast('Error: '+e.message); }
+// ── SCANNER helpers ───────────────────────────────────
+function abrirQRDesdeScanner(){if(typeof productoEscaneado!=='undefined'&&productoEscaneado)mostrarEtiquetaQR(productoEscaneado);}
+function abrirSDSDesdeScanner(){if(typeof productoEscaneado!=='undefined'&&productoEscaneado)verSDS(productoEscaneado);}
+
+// ── MOVIMIENTOS ───────────────────────────────────────
+async function cargarMovimientos(){
+  document.getElementById('mov-lista').innerHTML='<div class="loading">Cargando...</div>';
+  try{todosMovimientos=await API.getMovimientos(100,almacenActivo?.id);const users=[...new Set(todosMovimientos.map(m=>m.usuario_nombre).filter(Boolean))];const sel=document.getElementById('fil-user');sel.innerHTML='<option value="">Todos los usuarios</option>'+users.map(u=>`<option>${u}</option>`).join('');filtrarMov();}
+  catch{document.getElementById('mov-lista').innerHTML='<div class="empty">Error al cargar</div>';}
 }
+
+function filtrarMov(){const tipo=document.getElementById('fil-tipo').value;const user=document.getElementById('fil-user').value;const f=todosMovimientos.filter(m=>(!tipo||m.tipo===tipo)&&(!user||m.usuario_nombre===user));document.getElementById('mov-lista').innerHTML=f.length?f.map(renderMovItem).join(''):'<div class="empty">Sin movimientos</div>';}
+
+function renderMovItem(m){
+  const signo=m.tipo==='entrada'?'+':'−';const fecha=m.created_at?new Date(m.created_at).toLocaleString('es-MX'):'—';const color=m.tipo==='entrada'?'entrada':'salida';
+  const fotoHtml=m.foto_evidencia?`<div class="mov-foto"><a href="#" onclick="verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale'}</a></div>`:'';
+  return`<div class="mov-item"><div class="mov-dot ${color}">${m.tipo==='entrada'?'↓':m.tipo==='ajuste'?'⚙':'↑'}</div><div class="mov-body"><div class="mov-name">${m.nombre}</div><div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>${fotoHtml}</div><div class="mov-qty ${color}">${m.tipo==='ajuste'?'':signo}${m.cantidad} ${m.unidad||''}</div></div>`;
+}
+
+function verFoto(url){const modal=document.getElementById('foto-modal');const img=document.getElementById('foto-modal-img');if(!modal||!img)return;img.src=url;modal.classList.remove('hidden');}
+function cerrarFotoModal(){document.getElementById('foto-modal')?.classList.add('hidden');const img=document.getElementById('foto-modal-img');if(img)img.src='';}
 
 // ── PEDIDOS ───────────────────────────────────────────
-async function cargarPedidos() {
+async function cargarPedidos(){
   document.getElementById('ped-lista').innerHTML='<div class="loading">Cargando...</div>';
-  try {
-    const peds = await API.getPedidos();
-    document.getElementById('ped-lista').innerHTML = peds.length
-      ? peds.map(p=>`<div class="pedido-item"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="pedido-name">${p.num||'PED'} — ${p.producto}</div><div class="pedido-meta">${p.proveedor} · ${p.cantidad} · ${p.fecha_estimada||'—'}</div></div><span class="badge ${p.estado==='Entregado'?'badge-ok':p.estado==='En tránsito'?'badge-info':'badge-warn'}">${p.estado}</span></div>${p.estado!=='Entregado'?`<button class="btn btn-sm btn-green" style="margin-top:8px" onclick="marcarEntregado('${p.id}')">✓ Marcar entregado</button>`:''}</div>`).join('')
-      : '<div class="empty">Sin pedidos</div>';
-  } catch { document.getElementById('ped-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
+  try{const peds=await API.getPedidos();document.getElementById('ped-lista').innerHTML=peds.length?peds.map(p=>{let prods=[];try{prods=JSON.parse(p.productos_json||'[]');}catch{}const prodsHtml=prods.length?`<div class="pedido-detalle">${prods.map(pr=>`<div class="pedido-detalle-item">• ${pr.nombre} — ${pr.qty}</div>`).join('')}</div>`:`<div class="pedido-detalle"><div class="pedido-detalle-item">• ${p.producto||'—'} — ${p.cantidad||'—'}</div></div>`;return`<div class="pedido-item"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="pedido-name">${p.num||'PED'} — ${p.proveedor}</div><div class="pedido-meta">Estimado: ${p.fecha_estimada||'—'}${p.fecha_entrega_real?' · Entregado: '+p.fecha_entrega_real:''}</div>${prodsHtml}${p.nota?`<div class="pedido-meta">Nota: ${p.nota}</div>`:''}</div><span class="badge ${p.estado==='Entregado'?'badge-ok':p.estado==='En tránsito'?'badge-info':'badge-warn'}">${p.estado}</span></div>${p.estado!=='Entregado'?`<button class="btn btn-sm btn-green" style="margin-top:8px" onclick="marcarEntregado('${p.id}')">✓ Marcar entregado</button>`:''}</div>`;}).join(''):'<div class="empty">Sin pedidos</div>';}
+  catch{document.getElementById('ped-lista').innerHTML='<div class="empty">Error</div>';}
 }
 
-function mostrarFormPedido() { const f=document.getElementById('form-pedido'); f.classList.remove('hidden'); f.scrollIntoView({behavior:'smooth'}); }
+function mostrarFormPedido(){pedidoProductos=[];renderListaPedidoProductos();const f=document.getElementById('form-pedido');f.classList.remove('hidden');f.scrollIntoView({behavior:'smooth'});}
 
-async function guardarPedido() {
-  const peds = await API.getPedidos();
-  const num  = 'PED-'+String(peds.length+1).padStart(3,'0');
-  const ped  = { num, proveedor:document.getElementById('pp-prov').value.trim(), producto:document.getElementById('pp-prod').value.trim(), cantidad:document.getElementById('pp-qty').value.trim(), fecha_estimada:document.getElementById('pp-fecha').value, estado:'Confirmado', creado_por:currentProfile?.nombre||currentUser?.email };
-  if (!ped.proveedor||!ped.producto) { toast('Completa proveedor y producto'); return; }
-  try { await API.addPedido(ped); toast('Pedido '+num+' creado'); document.getElementById('form-pedido').classList.add('hidden'); cargarPedidos(); }
-  catch(e) { toast('Error: '+e.message); }
+function agregarProductoPedido(){const nombre=document.getElementById('pp-prod-nombre').value.trim();const qty=document.getElementById('pp-prod-qty').value.trim();if(!nombre||!qty){toast('Ingresa nombre y cantidad');return;}pedidoProductos.push({nombre,qty});document.getElementById('pp-prod-nombre').value='';document.getElementById('pp-prod-qty').value='';renderListaPedidoProductos();toast('Producto agregado');}
+
+function renderListaPedidoProductos(){const lista=document.getElementById('pp-productos-lista');if(!lista)return;lista.innerHTML=pedidoProductos.length?pedidoProductos.map((p,i)=>`<div class="pedido-prod-item"><div class="pedido-prod-item-name">${p.nombre}</div><div class="pedido-prod-item-qty">${p.qty}</div><button class="pedido-prod-remove" onclick="pedidoProductos.splice(${i},1);renderListaPedidoProductos()">✕</button></div>`).join(''):'<div style="font-size:12px;color:var(--text3);padding:8px 0">Agrega al menos un producto</div>';}
+
+async function guardarPedido(){
+  const proveedor=document.getElementById('pp-prov').value.trim();if(!proveedor){toast('Ingresa el proveedor');return;}if(!pedidoProductos.length){toast('Agrega al menos un producto');return;}
+  const peds=await API.getPedidos();const num='PED-'+String(peds.length+1).padStart(3,'0');
+  const ped={num,proveedor,producto:pedidoProductos.map(p=>p.nombre).join(', '),cantidad:pedidoProductos.map(p=>p.qty).join(', '),productos_json:JSON.stringify(pedidoProductos),fecha_estimada:document.getElementById('pp-fecha').value,nota:document.getElementById('pp-nota').value.trim(),estado:'Confirmado',creado_por:currentProfile?.nombre||currentUser?.email};
+  try{await API.addPedido(ped);toast('Pedido '+num+' creado con '+pedidoProductos.length+' producto(s)');document.getElementById('form-pedido').classList.add('hidden');pedidoProductos=[];cargarPedidos();}
+  catch(e){toast('Error: '+e.message);}
 }
 
-async function marcarEntregado(id) {
-  try { await API.updatePedidoEstado(id,'Entregado'); toast('Pedido marcado como entregado'); cargarPedidos(); }
-  catch { toast('Error al actualizar'); }
+async function marcarEntregado(id){
+  const fechaReal=prompt('¿Cuál fue la fecha real de entrega? (AAAA-MM-DD)\nEjemplo: '+new Date().toISOString().split('T')[0]);
+  if(fechaReal===null)return;
+  try{await API.updateFechaEntrega(id,fechaReal||new Date().toISOString().split('T')[0]);toast('Pedido marcado como entregado');cargarPedidos();}
+  catch{toast('Error al actualizar');}
 }
 
 // ── USUARIOS ──────────────────────────────────────────
-async function cargarUsuarios() {
-  if (currentProfile?.rol !== 'admin') return;
+async function cargarUsuarios(){
+  if(currentProfile?.rol!=='admin')return;
   document.getElementById('users-lista').innerHTML='<div class="loading">Cargando...</div>';
-  try {
-    const users = await API.getUsuarios();
-    document.getElementById('users-lista').innerHTML = users.length
-      ? users.map(u=>`<div class="user-item"><div class="user-item-avatar">${(u.nombre||'?').substring(0,2).toUpperCase()}</div><div class="user-item-body"><div class="user-item-name">${u.nombre||'—'}</div><div class="user-item-email">${u.email||'—'}</div></div><div class="rol-select"><select onchange="cambiarRol('${u.id}',this.value,'${u.nombre}')" ${u.id===currentUser.id?'disabled':''}><option value="operador" ${u.rol==='operador'?'selected':''}>Operador</option><option value="supervisor" ${u.rol==='supervisor'?'selected':''}>Supervisor</option><option value="admin" ${u.rol==='admin'?'selected':''}>Admin</option></select><span class="badge badge-${u.rol}">${u.rol}</span></div></div>`).join('')
-      : '<div class="empty">Sin usuarios</div>';
-  } catch { document.getElementById('users-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
+  try{const users=await API.getUsuarios();document.getElementById('users-lista').innerHTML=users.length?users.map(u=>`<div class="user-item"><div class="user-item-avatar">${(u.nombre||'?').substring(0,2).toUpperCase()}</div><div class="user-item-body"><div class="user-item-name">${u.nombre||'—'}</div><div class="user-item-email">${u.email||'—'}</div></div><div class="rol-select"><select onchange="cambiarRol('${u.id}',this.value,'${(u.nombre||'').replace(/'/g,"\\'")}') " ${u.id===currentUser.id?'disabled':''}><option value="operador" ${u.rol==='operador'?'selected':''}>Operador</option><option value="supervisor" ${u.rol==='supervisor'?'selected':''}>Supervisor</option><option value="admin" ${u.rol==='admin'?'selected':''}>Admin</option></select><span class="badge badge-${u.rol}">${u.rol}</span></div></div>`).join(''):'<div class="empty">Sin usuarios</div>';}
+  catch{document.getElementById('users-lista').innerHTML='<div class="empty">Error</div>';}
 }
 
-async function cambiarRol(userId, nuevoRol, nombre) {
-  try {
-    await API.updateRol(userId, nuevoRol);
-    await API.addAuditoria({tipo:'rol_cambio',descripcion:`Rol de ${nombre} cambiado a ${nuevoRol}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{usuario_afectado:userId,nuevo_rol:nuevoRol}});
-    toast('Rol actualizado a: '+nuevoRol); cargarUsuarios();
-  } catch(e) { toast('Error: '+e.message); }
+async function cambiarRol(userId,nuevoRol,nombre){
+  try{await API.updateRol(userId,nuevoRol);await API.addAuditoria({tipo:'rol_cambio',descripcion:`Rol de ${nombre} cambiado a ${nuevoRol}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{usuario_afectado:userId,nuevo_rol:nuevoRol}});toast('Rol actualizado a: '+nuevoRol);cargarUsuarios();}
+  catch(e){toast('Error: '+e.message);}
 }
 
-function mostrarFormUsuario() { const f=document.getElementById('form-usuario'); f.classList.remove('hidden'); f.scrollIntoView({behavior:'smooth'}); }
+function mostrarFormUsuario(){const f=document.getElementById('form-usuario');f.classList.remove('hidden');f.scrollIntoView({behavior:'smooth'});}
 
-async function crearUsuario() {
-  const nombre=document.getElementById('nu-nombre').value.trim();
-  const email=document.getElementById('nu-email').value.trim();
-  const pass=document.getElementById('nu-pass').value;
-  const rol=document.getElementById('nu-rol').value;
-  if (!nombre||!email||!pass) { toast('Completa todos los campos'); return; }
-  if (pass.length<8) { toast('La contraseña debe tener al menos 8 caracteres'); return; }
-  try { await API.crearUsuario(email,pass,nombre,rol); toast('Usuario creado: '+nombre); document.getElementById('form-usuario').classList.add('hidden'); cargarUsuarios(); }
-  catch(e) { toast('Error: '+e.message); }
+async function crearUsuario(){
+  const nombre=document.getElementById('nu-nombre').value.trim();const email=document.getElementById('nu-email').value.trim().toLowerCase();const pass=document.getElementById('nu-pass').value;const rol=document.getElementById('nu-rol').value;
+  if(!nombre||!email||!pass){toast('Completa todos los campos');return;}if(pass.length<8){toast('Contraseña mínimo 8 caracteres');return;}
+  try{await API.crearUsuario(email,pass,nombre,rol);toast('Usuario creado: '+nombre);document.getElementById('form-usuario').classList.add('hidden');cargarUsuarios();}
+  catch(e){toast('Error: '+e.message);}
 }
 
 // ── AUDITORÍA ─────────────────────────────────────────
-async function cargarAuditoria() {
+async function cargarAuditoria(){
   document.getElementById('aud-lista').innerHTML='<div class="loading">Cargando...</div>';
-  try {
-    todaAuditoria = await API.getAuditoria();
-    const users = [...new Set(todaAuditoria.map(a=>a.usuario_nombre).filter(Boolean))];
-    const sel = document.getElementById('aud-user');
-    sel.innerHTML = '<option value="">Todos los usuarios</option>'+users.map(u=>`<option>${u}</option>`).join('');
-    filtrarAuditoria();
-  } catch { document.getElementById('aud-lista').innerHTML='<div class="empty">Sin registros</div>'; }
+  try{todaAuditoria=await API.getAuditoria();const users=[...new Set(todaAuditoria.map(a=>a.usuario_nombre).filter(Boolean))];const sel=document.getElementById('aud-user');sel.innerHTML='<option value="">Todos los usuarios</option>'+users.map(u=>`<option>${u}</option>`).join('');filtrarAuditoria();}
+  catch{document.getElementById('aud-lista').innerHTML='<div class="empty">Sin registros</div>';}
 }
 
-function filtrarAuditoria() {
-  const tipo = document.getElementById('aud-tipo').value;
-  const user = document.getElementById('aud-user').value;
-  const f = todaAuditoria.filter(a => (!tipo||a.tipo===tipo) && (!user||a.usuario_nombre===user));
-  const icons={login:'🔑',rol_cambio:'👤',producto_nuevo:'📦',movimiento:'🔄'};
-  const clases={login:'login',rol_cambio:'rol',producto_nuevo:'prod',movimiento:'mov'};
-  document.getElementById('aud-lista').innerHTML = f.length
-    ? f.map(a=>`<div class="aud-item"><div class="aud-icon ${clases[a.tipo]||'mov'}">${icons[a.tipo]||'📋'}</div><div><div class="aud-name">${a.descripcion||a.tipo}</div><div class="aud-meta">${a.usuario_nombre||'—'} · ${a.created_at?new Date(a.created_at).toLocaleString('es-MX'):'—'}</div></div></div>`).join('')
-    : '<div class="empty">Sin registros</div>';
-}
+function filtrarAuditoria(){const tipo=document.getElementById('aud-tipo').value;const user=document.getElementById('aud-user').value;const f=todaAuditoria.filter(a=>(!tipo||a.tipo===tipo)&&(!user||a.usuario_nombre===user));const icons={login:'🔑',rol_cambio:'👤',producto_nuevo:'📦',movimiento:'🔄',ajuste:'⚙'};const clases={login:'login',rol_cambio:'rol',producto_nuevo:'prod',movimiento:'mov',ajuste:'mov'};document.getElementById('aud-lista').innerHTML=f.length?f.map(a=>`<div class="aud-item"><div class="aud-icon ${clases[a.tipo]||'mov'}">${icons[a.tipo]||'📋'}</div><div><div class="aud-name">${a.descripcion||a.tipo}</div><div class="aud-meta">${a.usuario_nombre||'—'} · ${a.created_at?new Date(a.created_at).toLocaleString('es-MX'):'—'}</div></div></div>`).join(''):'<div class="empty">Sin registros</div>';}
 
 // ── ALERTAS ───────────────────────────────────────────
-async function cargarAlertas() {
+async function cargarAlertas(){
   document.getElementById('alertas-lista').innerHTML='<div class="loading">Cargando...</div>';
-  try {
-    const prods = await API.getProductos();
-    const hoy = new Date(); const alertas = [];
-    prods.forEach(p => {
-      if (Number(p.stock)<=Number(p.min)) alertas.push({tipo:'danger',icon:'⚠',nombre:p.nombre,detalle:`Stock bajo: ${p.stock} ${p.unidad||''} (mínimo: ${p.min})`});
-      if (p.caducidad) { const dias=Math.floor((new Date(p.caducidad)-hoy)/86400000); if(dias<CONFIG.DIAS_ALERTA_CADUCIDAD) alertas.push({tipo:'warn',icon:'⏰',nombre:p.nombre,detalle:`Caduca en ${dias} días (${p.caducidad})`}); }
-    });
-    document.getElementById('alertas-lista').innerHTML = alertas.length
-      ? alertas.map(a=>`<div class="alert-item"><div class="alert-icon ${a.tipo}">${a.icon}</div><div><div class="alert-name">${a.nombre}</div><div class="alert-detail">${a.detalle}</div></div></div>`).join('')
-      : '<div class="empty">✓ Sin alertas activas</div>';
-  } catch { document.getElementById('alertas-lista').innerHTML='<div class="empty">Error al cargar</div>'; }
+  try{const prods=await API.getProductos(almacenActivo?.id);const hoy=new Date();const alertas=[];prods.forEach(p=>{if(Number(p.stock)<=Number(p.min))alertas.push({tipo:'danger',icon:'⚠',nombre:p.nombre,detalle:`Stock bajo: ${p.stock} ${p.unidad||''} (mínimo: ${p.min})`});if(p.caducidad){const dias=Math.floor((new Date(p.caducidad)-hoy)/86400000);if(dias<90)alertas.push({tipo:'warn',icon:'⏰',nombre:p.nombre,detalle:`Caduca en ${dias} días (${p.caducidad})`});}});document.getElementById('alertas-lista').innerHTML=alertas.length?alertas.map(a=>`<div class="alert-item"><div class="alert-icon ${a.tipo}">${a.icon}</div><div><div class="alert-name">${a.nombre}</div><div class="alert-detail">${a.detalle}</div></div></div>`).join(''):'<div class="empty">✓ Sin alertas activas</div>';}
+  catch{document.getElementById('alertas-lista').innerHTML='<div class="empty">Error</div>';}
 }
 
 // ── TOAST ─────────────────────────────────────────────
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.remove('hidden');
-  clearTimeout(t._t); t._t = setTimeout(() => t.classList.add('hidden'), 3200);
-}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.add('hidden'),3200);}
 
 // ── EVENTOS ───────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('l-pass')?.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-  document.getElementById('pin-pass')?.addEventListener('keydown', e => { if(e.key==='Enter') confirmPin(); });
-  document.addEventListener('keydown', e => { if(e.key==='Escape') cerrarFotoModal(); });
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('l-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('pin-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')confirmPin();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){cerrarFotoModal();cerrarSDS();cerrarQR();}});
 });

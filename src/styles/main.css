@@ -48,15 +48,17 @@ body {
 }
 .orb1 { width: 400px; height: 400px; background: var(--green2); top: -100px; right: -100px; }
 .orb2 { width: 300px; height: 300px; background: #5b9bd5; bottom: -80px; left: -80px; }
+.login-screen-wrapper {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 20px; position: relative; z-index: 1;
+}
 .login-card {
-  position: relative; z-index: 1;
   background: rgba(255,255,255,.97);
   border-radius: 18px;
   padding: 36px 32px;
   width: 100%; max-width: 380px;
-  margin: 0 auto;
-  top: 50%; transform: translateY(-50%);
   box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  position: relative; z-index: 1;
 }
 .login-logo-wrap { text-align: center; margin-bottom: 16px; }
 .login-logo { width: 90px; height: 90px; object-fit: contain; }
@@ -361,3 +363,94 @@ label { font-size: 12px; font-weight: 500; color: var(--text2); }
 .foto-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
 .foto-modal img{max-width:100%;max-height:90vh;border-radius:var(--radius);object-fit:contain}
 .foto-modal-close{position:absolute;top:16px;right:16px;background:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* ── BÚSQUEDA DE PRODUCTOS v6 ── */
+.search-result-item{padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.search-result-item:last-child{border-bottom:none}
+.search-result-item:hover{background:var(--bg)}
+.search-result-name{font-size:13px;font-weight:500;color:var(--text)}
+.search-result-meta{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* ── PEDIDOS MULTI-PRODUCTO v7 ── */
+.pedido-prod-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:6px;gap:8px}
+.pedido-prod-item-name{font-size:13px;font-weight:500;color:var(--text);flex:1}
+.pedido-prod-item-qty{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace}
+.pedido-prod-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:0 4px;line-height:1}
+.pedido-detalle{margin-top:8px}
+.pedido-detalle-item{font-size:12px;color:var(--text2);padding:2px 0}
+
+/* ── PROVEEDORES v8 ── */
+.prov-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.prov-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.prov-name{font-size:15px;font-weight:600;color:var(--navy)}
+.prov-rfc{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.prov-info{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px}
+.prov-info-item{font-size:12px;color:var(--text2)}
+.prov-info-item span{color:var(--text);font-weight:500}
+.prov-productos{font-size:12px;color:var(--text2);margin-bottom:10px;padding:6px 8px;background:var(--bg);border-radius:var(--radius-sm)}
+.prov-stars{display:flex;gap:2px;cursor:pointer}
+.star{font-size:22px;color:#d1d5db;transition:color .1s;line-height:1}
+.star.active{color:#f59e0b}
+.star:hover,.star.hover{color:#f59e0b}
+.eval-score{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.eval-score-label{font-size:12px;color:var(--text2);width:90px;flex-shrink:0}
+.eval-score-val{font-size:12px;font-weight:600;color:var(--navy);width:20px}
+.eval-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.eval-item:last-child{border-bottom:none}
+.eval-scores{display:flex;gap:10px;margin:4px 0}
+.eval-badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+.eval-badge.punt{background:#fff7ed;color:#c2410c}
+.eval-badge.cal{background:var(--green-bg);color:var(--green)}
+.eval-badge.prec{background:var(--blue-bg);color:var(--blue)}
+.tiempo-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.tiempo-item:last-child{border-bottom:none}
+.tiempo-ok{color:var(--green);font-weight:500}
+.tiempo-late{color:var(--red);font-weight:500}
+.tiempo-pend{color:var(--text3)}
+.prov-promedio{display:flex;gap:12px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:12px;flex-wrap:wrap}
+.prom-item{text-align:center;flex:1;min-width:70px}
+.prom-val{font-size:22px;font-weight:600;color:var(--navy)}
+.prom-label{font-size:11px;color:var(--text2);margin-top:2px}
+.prom-stars{font-size:14px;color:#f59e0b}
+
+/* ── v9 NUEVAS CLASES ── */
+.almacen-selector-bar{background:var(--navy2);padding:6px 14px;display:flex;align-items:center;gap:8px}
+.almacen-selector-bar label{font-size:11px;color:rgba(255,255,255,.7)}
+.almacen-selector-bar select{background:rgba(255,255,255,.15);color:#fff;border:0.5px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit}
+.almacen-selector-bar select option{background:var(--navy);color:#fff}
+.conteo-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.conteo-item:last-child{border-bottom:none}
+.conteo-info{flex:1;min-width:0}
+.conteo-nombre{font-size:13px;font-weight:500;color:var(--text)}
+.conteo-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.conteo-input-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.conteo-input{width:110px}
+.conteo-diff{font-size:12px;font-weight:600;font-family:'DM Mono',monospace;min-width:60px;text-align:right}
+.diff-ok{color:var(--green)}
+.diff-pos{color:var(--green)}
+.diff-neg{color:var(--red)}
+.sds-banner{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-sm);margin:6px 0;font-size:12px}
+.sds-banner.alto{background:var(--red-bg);color:var(--red)}
+.sds-banner.medio{background:var(--amber-bg);color:var(--amber)}
+.sds-banner.bajo{background:var(--green-bg);color:var(--green)}
+.ghs-row{display:flex;gap:5px;flex-wrap:wrap;margin:4px 0}
+.inv-ubicacion{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ── NOTIFICACIONES v10 ── */
+.notif-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.notif-inactivo{opacity:.6}
+.notif-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.notif-nombre{font-size:14px;font-weight:600;color:var(--navy)}
+.notif-correo{font-size:12px;color:var(--text2);margin-top:2px}
+.notif-horario{font-size:11px;color:var(--text3);margin-top:2px}
+.notif-reportes{display:flex;gap:6px;flex-wrap:wrap}
+.notif-tag{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);color:var(--text3);background:var(--bg)}
+.notif-tag.active{background:var(--blue-bg);color:var(--blue);border-color:var(--blue-bg)}
+.check-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;color:var(--text)}
+.check-row input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+.respaldo-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.respaldo-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;cursor:pointer;transition:border-color .15s}
+.respaldo-card:hover{border-color:var(--navy)}
+.respaldo-icon{font-size:32px;margin-bottom:8px}
+.respaldo-title{font-size:13px;font-weight:600;color:var(--navy)}
+.respaldo-sub{font-size:11px;color:var(--text3);margin-top:4px}
