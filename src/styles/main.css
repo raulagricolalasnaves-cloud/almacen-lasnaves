@@ -480,3 +480,29 @@ label { font-size: 12px; font-weight: 500; color: var(--text2); }
 .movstock-tab{flex:1;padding:10px;font-size:13px;font-weight:500;border:none;background:var(--bg);color:var(--text2);cursor:pointer;transition:all .15s;font-family:inherit}
 .movstock-tab.active{background:var(--navy);color:#fff}
 .movstock-tab:hover:not(.active){background:var(--border)}
+
+/* ── PEDIDOS CLIENTES v13 ── */
+.pc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .15s;box-shadow:var(--shadow)}
+.pc-card:hover{border-color:var(--navy)}
+.pc-vencido{border-left:3px solid var(--red)}
+.pc-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.pc-num{font-size:14px;font-weight:600;color:var(--navy)}
+.pc-cliente{font-size:12px;color:var(--text2);margin-top:2px}
+.pc-productos{font-size:12px;color:var(--text2);margin-bottom:6px;line-height:1.4}
+.pc-fechas{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text3)}
+.pc-prioridad{font-size:10px;padding:1px 6px;border-radius:20px;font-weight:500;margin-left:6px}
+.pc-prioridad-alta{background:#fef2f2;color:var(--red)}
+.pc-prioridad-normal{background:var(--bg);color:var(--text3)}
+.pc-prioridad-baja{background:var(--green-bg);color:var(--green)}
+.pc-timeline{display:flex;align-items:center;margin-bottom:14px;overflow-x:auto;padding:10px 0;gap:0}
+.pc-timeline-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:60px;position:relative}
+.pc-timeline-item:not(:last-child)::after{content:'';position:absolute;top:8px;left:50%;width:100%;height:2px;background:var(--border);z-index:0}
+.pc-timeline-item.done:not(:last-child)::after{background:var(--green)}
+.pc-timeline-dot{width:16px;height:16px;border-radius:50%;background:var(--border);z-index:1;margin-bottom:4px}
+.pc-timeline-label{font-size:10px;color:var(--text3);text-align:center;white-space:nowrap}
+.pc-timeline-item.done .pc-timeline-dot{background:var(--green)}
+.pc-timeline-item.done .pc-timeline-label{color:var(--green);font-weight:500}
+
+/* ── SCANNER EN ENTRADAS/SALIDAS ── */
+.scanner-inline{background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px}
+.scanner-inline-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px}

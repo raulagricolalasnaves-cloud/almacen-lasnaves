@@ -143,6 +143,10 @@ function goTo(tab, btn) {
   document.getElementById('tab-' + tab).classList.remove('hidden');
   btn.classList.add('active');
   if (typeof stopScanner === 'function') stopScanner();
+  if (typeof stopScannerEnt === 'function') stopScannerEnt();
+  if (typeof stopScannerSal === 'function') stopScannerSal();
+  if (typeof stopScannerEnt === 'function') stopScannerEnt();
+  if (typeof stopScannerSal === 'function') stopScannerSal();
   const loaders = {
     dashboard: cargarDashboardUnificado, inventario: cargarInventario,
     movimientos: cargarMovimientos, pedidos: cargarPedidos,
@@ -152,6 +156,7 @@ function goTo(tab, btn) {
     movstock: () => switchMovStock('entrada'),
     entradas: iniciarEntradas, salidas: iniciarSalidas,
     conteo: () => { const el=document.getElementById('conteo-almacen-nombre'); if(el) el.textContent=almacenActivo?.nombre||''; },
+    'pedidos-clientes': cargarPedidosClientesCompleto,
     notificaciones: cargarNotificaciones,
     respaldo: () => {},
   };
@@ -384,6 +389,8 @@ function filtrarInv(q){renderInventario(todosProductos.filter(p=>p.nombre.toLowe
 function mostrarFormProducto(){const f=document.getElementById('form-producto');f.classList.remove('hidden');f.scrollIntoView({behavior:'smooth'});}
 
 async function guardarProducto(){
+  const nombre = document.getElementById('np-nombre').value.trim();
+  if (!nombre) { toast('El nombre del producto es obligatorio'); return; }
   // Generar código automático si no se ingresó
   let codInput = document.getElementById('np-id').value.trim();
   if (!codInput) {
@@ -391,8 +398,21 @@ async function guardarProducto(){
     const num = String(prods.length + 1).padStart(4, '0');
     codInput = 'QM-' + num;
   }
-  const prod={id:codInput,nombre:document.getElementById('np-nombre').value.trim(),stock:Number(document.getElementById('np-stock').value)||0,min:Number(document.getElementById('np-min').value)||0,unidad:document.getElementById('np-unit').value,proveedor:document.getElementById('np-prov').value.trim(),lote:document.getElementById('np-lote').value.trim(),caducidad:document.getElementById('np-cad').value,ubicacion:document.getElementById('np-ubicacion').value.trim(),precio_unitario:Number(document.getElementById('np-precio').value)||0,peligrosidad:document.getElementById('np-peligro').value,clase_ghs:document.getElementById('np-ghs').value.trim(),almacen_id:almacenActivo?.id};
-  if(!prod.id||!prod.nombre){toast('Completa código y nombre');return;}
+  const prod={
+    id: codInput,
+    nombre,
+    stock:         Number(document.getElementById('np-stock').value)       || 0,
+    min:           Number(document.getElementById('np-min').value)         || 0,
+    unidad:        document.getElementById('np-unit').value                || 'piezas',
+    proveedor:     document.getElementById('np-prov')?.value.trim()        || '',
+    lote:          document.getElementById('np-lote')?.value.trim()        || '',
+    caducidad:     document.getElementById('np-cad')?.value                || null,
+    ubicacion:     document.getElementById('np-ubicacion')?.value.trim()   || '',
+    precio_unitario: Number(document.getElementById('np-precio')?.value)   || 0,
+    peligrosidad:  document.getElementById('np-peligro')?.value            || '',
+    clase_ghs:     document.getElementById('np-ghs')?.value.trim()         || '',
+    almacen_id:    almacenActivo?.id || null,
+  };
   try{await API.addProducto(prod);await API.addAuditoria({tipo:'producto_nuevo',descripcion:`Producto agregado: ${prod.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{id:prod.id}});toast('Producto guardado');document.getElementById('form-producto').classList.add('hidden');cargarInventario();}
   catch(e){toast('Error: '+e.message);}
 }
@@ -661,3 +681,72 @@ async function cargarDashboardUnificado() {
 
 // ── ELIMINAR USUARIO ──────────────────────────────────
 // (ya definido arriba como eliminarUsuarioSistema)
+
+// ── SCANNER INTEGRADO EN ENTRADAS ─────────────────────
+let scannerEnt = null, scannerSal = null;
+
+function startScannerEnt() {
+  const el = document.getElementById('reader-ent');
+  if (!el) return;
+  el.style.display = 'block';
+  if (scannerEnt) return;
+  scannerEnt = new Html5Qrcode('reader-ent');
+  scannerEnt.start({ facingMode:'environment' }, { fps:10, qrbox:{width:240,height:120} },
+    (code) => { stopScannerEnt(); document.getElementById('ent-buscar').value = code.trim(); buscarProductoEntrada(code.trim()); },
+    () => {}
+  ).catch(() => toast('No se pudo acceder a la cámara'));
+}
+
+function stopScannerEnt() {
+  if (scannerEnt) { scannerEnt.stop().catch(()=>{}); scannerEnt = null; }
+  const el = document.getElementById('reader-ent'); if(el) el.style.display = 'none';
+}
+
+function startScannerSal() {
+  const el = document.getElementById('reader-sal');
+  if (!el) return;
+  el.style.display = 'block';
+  if (scannerSal) return;
+  scannerSal = new Html5Qrcode('reader-sal');
+  scannerSal.start({ facingMode:'environment' }, { fps:10, qrbox:{width:240,height:120} },
+    (code) => { stopScannerSal(); document.getElementById('sal-buscar').value = code.trim(); buscarProductoSalida(code.trim()); },
+    () => {}
+  ).catch(() => toast('No se pudo acceder a la cámara'));
+}
+
+function stopScannerSal() {
+  if (scannerSal) { scannerSal.stop().catch(()=>{}); scannerSal = null; }
+  const el = document.getElementById('reader-sal'); if(el) el.style.display = 'none';
+}
+
+// ── FILTRAR PEDIDOS CLIENTES ──────────────────────────
+let todosPedidosClientes = [];
+
+async function cargarPedidosClientesCompleto() {
+  document.getElementById('pc-lista').innerHTML = '<div class="loading">Cargando...</div>';
+  try {
+    todosPedidosClientes = await API.getPedidosClientes();
+    filtrarPedidosClientes();
+  } catch { document.getElementById('pc-lista').innerHTML = '<div class="empty">Error al cargar</div>'; }
+}
+
+function filtrarPedidosClientes() {
+  const estado = document.getElementById('pc-filtro-estado')?.value || '';
+  const prior  = document.getElementById('pc-filtro-prioridad')?.value || '';
+  const f = todosPedidosClientes.filter(p =>
+    (!estado || p.estado === estado) && (!prior || p.prioridad === prior)
+  );
+  renderPedidosClientes(f);
+}
+
+// ── ELIMINAR ALMACÉN ──────────────────────────────────
+async function eliminarAlmacen(id, nombre) {
+  if (almacenActivo?.id === id) { toast('No puedes eliminar el almacén activo'); return; }
+  if (!confirm(`¿Eliminar el almacén "${nombre}"?\n\nLos productos asociados no se eliminarán.`)) return;
+  try {
+    await API.eliminarAlmacen(id);
+    toast('✓ Almacén eliminado: ' + nombre);
+    cargarAlmacenes();
+    iniciarAlmacenes();
+  } catch(e) { toast('Error: ' + e.message); }
+}

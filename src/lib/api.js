@@ -244,4 +244,42 @@ const API = {
     const { error } = await db.from('perfiles').update({ permisos }).eq('id', userId);
     if (error) throw error;
   },
+
+  // ── PEDIDOS DE CLIENTES ───────────────────────────
+  async getPedidosClientes() {
+    const { data, error } = await db.from('pedidos_clientes').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async addPedidoCliente(ped) {
+    const { data, error } = await db.from('pedidos_clientes').insert(ped).select('id').single();
+    if (error) throw error;
+    return data.id;
+  },
+  async updateEstadoPedidoCliente(id, estado) {
+    const { error } = await db.from('pedidos_clientes').update({ estado }).eq('id', id);
+    if (error) throw error;
+  },
+  async updatePedidoClienteFechaReal(id, fecha) {
+    const { error } = await db.from('pedidos_clientes').update({ fecha_entrega_real: fecha }).eq('id', id);
+    if (error) throw error;
+  },
+  async getHistorialPedidoCliente(pedidoId) {
+    const { data, error } = await db.from('pedidos_clientes_historial').select('*').eq('pedido_id', pedidoId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async addHistorialPedidoCliente(h) {
+    const { error } = await db.from('pedidos_clientes_historial').insert(h);
+    if (error) throw error;
+  },
+  async eliminarPedidoCliente(id) {
+    const { error } = await db.from('pedidos_clientes').delete().eq('id', id);
+    if (error) throw error;
+  },
+  // ── ELIMINAR ALMACÉN ──────────────────────────────
+  async eliminarAlmacen(id) {
+    const { error } = await db.from('almacenes').update({ activo: false }).eq('id', id);
+    if (error) throw error;
+  },
 };

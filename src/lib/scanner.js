@@ -275,14 +275,24 @@ async function guardarProductoDesdeScanner() {
   const prod = {
     id:        document.getElementById('alta-id').value.trim(),
     nombre:    document.getElementById('alta-nombre').value.trim(),
-    stock:     Number(document.getElementById('alta-stock').value) || 0,
-    min:       Number(document.getElementById('alta-min').value)   || 0,
-    unidad:    document.getElementById('alta-unit').value,
-    proveedor: document.getElementById('alta-prov').value.trim(),
-    lote:      document.getElementById('alta-lote').value.trim(),
-    caducidad: document.getElementById('alta-cad').value,
+    stock:     Number(document.getElementById('alta-stock').value)     || 0,
+    min:       Number(document.getElementById('alta-min').value)       || 0,
+    unidad:    document.getElementById('alta-unit').value              || 'piezas',
+    proveedor: document.getElementById('alta-prov')?.value.trim()     || '',
+    lote:      document.getElementById('alta-lote')?.value.trim()     || '',
+    caducidad: document.getElementById('alta-cad')?.value             || null,
+    ubicacion: document.getElementById('alta-ubicacion')?.value.trim()|| '',
+    precio_unitario: Number(document.getElementById('alta-precio')?.value) || 0,
+    almacen_id: typeof almacenActivo !== 'undefined' ? almacenActivo?.id : null,
   };
-  if (!prod.id || !prod.nombre) { toast('El código y nombre son obligatorios'); return; }
+  if (!prod.nombre) { toast('El nombre del producto es obligatorio'); return; }
+  // Auto-generar código si está vacío
+  if (!prod.id) {
+    try {
+      const prods = await API.getProductos();
+      prod.id = 'QM-' + String(prods.length + 1).padStart(4, '0');
+    } catch { prod.id = 'QM-' + Date.now().toString().slice(-6); }
+  }
 
   const btn = document.getElementById('btn-guardar-alta');
   btn.disabled = true; btn.textContent = 'Guardando...';
