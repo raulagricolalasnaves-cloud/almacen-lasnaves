@@ -118,15 +118,22 @@ function mostrarApp() {
 }
 
 function aplicarPermisosTabs(rol) {
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    const roles = btn.getAttribute('data-roles')?.split(',') || [];
-    btn.style.display = roles.includes(rol) ? '' : 'none';
-  });
-  const p = document.getElementById('inv-admin-panel');
-  if (p) { if (['admin','supervisor'].includes(rol)) p.classList.remove('hidden'); else p.classList.add('hidden'); }
-  // Mostrar/ocultar barra de almacén
+  // Admin siempre ve todo
+  if (rol === 'admin') {
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.style.display = '');
+    const p = document.getElementById('inv-admin-panel');
+    if (p) p.classList.remove('hidden');
+    const bar = document.getElementById('almacen-bar');
+    if (bar) bar.style.display = '';
+    return;
+  }
+  // Usuarios con permisos individuales
+  if (typeof aplicarPermisosMenu === 'function') {
+    aplicarPermisosMenu();
+  }
+  // Barra almacén solo si tiene acceso a almacenes
   const bar = document.getElementById('almacen-bar');
-  if (bar) bar.style.display = ['admin','supervisor'].includes(rol) ? '' : 'none';
+  if (bar) bar.style.display = tienePermiso('almacenes') ? '' : 'none';
 }
 
 // ── NAVEGACIÓN ────────────────────────────────────────
@@ -436,12 +443,59 @@ async function marcarEntregado(id){
 }
 
 // ── USUARIOS ──────────────────────────────────────────
-async function cargarUsuarios(){
+async function cargarUsuarios(expandirId) {
   if(currentProfile?.rol!=='admin')return;
   document.getElementById('users-lista').innerHTML='<div class="loading">Cargando...</div>';
-  try{const users=await API.getUsuarios();document.getElementById('users-lista').innerHTML=users.length?users.map(u=>`<div class="user-item"><div class="user-item-avatar">${(u.nombre||'?').substring(0,2).toUpperCase()}</div><div class="user-item-body"><div class="user-item-name">${u.nombre||'—'}</div><div class="user-item-email">${u.email||'—'}</div></div><div class="rol-select"><select onchange="cambiarRol('${u.id}',this.value,'${(u.nombre||'').replace(/'/g,"\\'")}') " ${u.id===currentUser.id?'disabled':''}><option value="operador" ${u.rol==='operador'?'selected':''}>Operador</option><option value="supervisor" ${u.rol==='supervisor'?'selected':''}>Supervisor</option><option value="admin" ${u.rol==='admin'?'selected':''}>Admin</option></select><span class="badge badge-${u.rol}">${u.rol}</span></div></div>`).join(''):'<div class="empty">Sin usuarios</div>';}
-  catch{document.getElementById('users-lista').innerHTML='<div class="empty">Error</div>';}
+  try {
+    const users = await API.getUsuarios();
+    if (!users.length) { document.getElementById('users-lista').innerHTML='<div class="empty">Sin usuarios</div>'; return; }
+    document.getElementById('users-lista').innerHTML = users.map(u => {
+      const permsActivos = typeof MODULOS !== 'undefined'
+        ? MODULOS.filter(m => u.permisos?.[m.key]).map(m => m.label) : [];
+      const esAdmin = u.rol === 'admin';
+      return `<div id="user-item-${u.id}">
+        <div class="user-item">
+          <div class="user-item-avatar">${(u.nombre||'?').substring(0,2).toUpperCase()}</div>
+          <div class="user-item-body">
+            <div class="user-item-name">${u.nombre||'—'} ${esAdmin?'<span class="badge badge-admin">Admin</span>':''}</div>
+            <div class="user-item-email">${u.email||'—'}</div>
+            ${!esAdmin?`<div class="permisos-resumen">${permsActivos.length?permsActivos.slice(0,4).map(p=>'<span class="perm-chip">'+p+'</span>').join('')+(permsActivos.length>4?'<span class="perm-chip">+'+( permsActivos.length-4)+' más</span>':''):'<span class="perm-chip off">Sin permisos asignados</span>'}</div>`:'<div style="font-size:11px;color:var(--text3)">Acceso total al sistema</div>'}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+            ${!esAdmin?`<button class="btn btn-sm btn-primary" onclick="togglePermisosPanel('${u.id}')">⚙ Permisos</button>`:''}
+            ${u.id!==currentUser.id&&!esAdmin?`<button class="btn btn-sm" onclick="hacerAdmin('${u.id}','${(u.nombre||'').replace(/'/g,"\\'")}')">↑ Admin</button>`:''}
+          </div>
+        </div>
+        <div id="panel-permisos-${u.id}" class="hidden"></div>
+      </div>`;
+    }).join('');
+    if (expandirId) togglePermisosPanel(expandirId);
+  } catch { document.getElementById('users-lista').innerHTML='<div class="empty">Error</div>'; }
 }
+
+function togglePermisosPanel(userId) {
+  const panel = document.getElementById('panel-permisos-' + userId);
+  if (!panel) return;
+  if (!panel.classList.contains('hidden') && panel.innerHTML) {
+    panel.classList.add('hidden'); panel.innerHTML = ''; return;
+  }
+  API.getProfile(userId).then(usuario => {
+    panel.innerHTML = renderPanelPermisos(usuario);
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+}
+
+async function hacerAdmin(userId, nombre) {
+  if (!confirm('¿Convertir a "'+nombre+'" en administrador? Tendrá acceso total.')) return;
+  try {
+    await API.updateRol(userId, 'admin');
+    await API.addAuditoria({tipo:'rol_cambio', descripcion:nombre+' promovido a administrador', usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email});
+    toast('✓ '+nombre+' ahora es administrador'); cargarUsuarios();
+  } catch(e) { toast('Error: '+e.message); }
+}
+
+
 
 async function cambiarRol(userId,nuevoRol,nombre){
   try{await API.updateRol(userId,nuevoRol);await API.addAuditoria({tipo:'rol_cambio',descripcion:`Rol de ${nombre} cambiado a ${nuevoRol}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{usuario_afectado:userId,nuevo_rol:nuevoRol}});toast('Rol actualizado a: '+nuevoRol);cargarUsuarios();}

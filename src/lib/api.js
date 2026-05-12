@@ -210,4 +210,10 @@ const API = {
     if (error) throw error;
     return data;
   },
+
+  // ── PERMISOS INDIVIDUALES ─────────────────────────
+  async updatePermisos(userId, permisos) {
+    const { error } = await db.from('perfiles').update({ permisos }).eq('id', userId);
+    if (error) throw error;
+  },
 };

@@ -454,3 +454,23 @@ label { font-size: 12px; font-weight: 500; color: var(--text2); }
 .respaldo-icon{font-size:32px;margin-bottom:8px}
 .respaldo-title{font-size:13px;font-weight:600;color:var(--navy)}
 .respaldo-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* ── PERMISOS INDIVIDUALES v11 ── */
+.permisos-panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:10px}
+.permisos-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.permisos-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:500px){.permisos-grid{grid-template-columns:1fr}}
+.permiso-item{display:flex;align-items:flex-start;gap:10px;padding:8px;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.permiso-info{flex:1;min-width:0}
+.permiso-label{font-size:12px;font-weight:500;color:var(--text)}
+.permiso-desc{font-size:11px;color:var(--text3);margin-top:2px}
+.permiso-toggle{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;margin-top:1px}
+.permiso-toggle input{opacity:0;width:0;height:0}
+.permiso-slider{position:absolute;cursor:pointer;inset:0;background:#d1d5db;border-radius:20px;transition:.2s}
+.permiso-slider:before{position:absolute;content:"";width:14px;height:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.permiso-toggle input:checked + .permiso-slider{background:var(--green)}
+.permiso-toggle input:checked + .permiso-slider:before{transform:translateX(16px)}
+.user-permisos-btn{font-size:11px;padding:3px 8px;margin-top:4px}
+.permisos-resumen{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.perm-chip{font-size:10px;padding:1px 6px;border-radius:20px;background:var(--blue-bg);color:var(--blue)}
+.perm-chip.off{background:var(--bg);color:var(--text3)}
