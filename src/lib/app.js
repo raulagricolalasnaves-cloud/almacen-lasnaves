@@ -174,7 +174,8 @@ async function cargarDashboard() {
     const bajo = prods.filter(p => Number(p.stock) <= Number(p.min)).length;
     const cad  = prods.filter(p => p.caducidad && Math.floor((new Date(p.caducidad)-hoy)/86400000) < 90).length;
     const act  = peds.filter(p => p.estado !== 'Entregado').length;
-    document.getElementById('m-prod').textContent = prods.length;
+    const prodsActivos = prods.filter(p => Number(p.stock) > 0);
+    document.getElementById('m-prod').textContent = prodsActivos.length;
     document.getElementById('m-bajo').textContent = bajo;
     document.getElementById('m-cad').textContent  = cad;
     document.getElementById('m-ped').textContent  = act;
@@ -428,7 +429,7 @@ function mostrarAjuste(id,nombre,stockActual,unidad){
       const diff=n-stockActual;
       if(Math.abs(diff)>0){const mov={tipo:diff>=0?'entrada':'salida',id_producto:id,nombre,cantidad:Math.abs(diff),unidad,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,destino:'Ajuste de inventario',nota:`Ajuste manual: ${stockActual} → ${n} ${unidad}`,stock_resultante:n,almacen_id:almacenActivo?.id,created_at:new Date().toISOString()};await API.addMovimiento(mov);}
       await API.addAuditoria({tipo:'ajuste',descripcion:`Ajuste de stock: ${nombre} ${stockActual}→${n} ${unidad}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email});
-      toast(`✓ Stock ajustado a ${n} ${unidad}`);cargarInventario();
+      toast(`✓ Stock ajustado a ${n} ${unidad}`);todosProductos=[];cargarInventario();cargarDashboard();
     }catch(e){toast('Error: '+e.message);}
   };
   abrirPin();
@@ -604,7 +605,9 @@ async function eliminarProducto(id, nombre) {
     await API.addAuditoria({ tipo:'ajuste', descripcion:`Producto eliminado: ${nombre} (${id})`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
     toast('✓ Producto eliminado: ' + nombre);
     todosProductos = [];
-    cargarInventario();
+    await cargarInventario();
+    cargarDashboard();
+    await cargarDashboard(); // Actualizar contadores
   } catch(e) { toast('Error al eliminar: ' + e.message); }
 }
 
@@ -748,4 +751,13 @@ async function eliminarAlmacen(id, nombre) {
     cargarAlmacenes();
     iniciarAlmacenes();
   } catch(e) { toast('Error: ' + e.message); }
+}
+
+// ── REFRESCAR DASHBOARD ───────────────────────────────
+async function refrescarDashboard(btn) {
+  if (btn) { btn.textContent = '↻ Cargando...'; btn.disabled = true; }
+  todosProductos = []; // Limpiar caché para forzar recarga
+  await cargarDashboardUnificado();
+  if (btn) { btn.textContent = '↻ Actualizar'; btn.disabled = false; }
+  toast('Dashboard actualizado');
 }
