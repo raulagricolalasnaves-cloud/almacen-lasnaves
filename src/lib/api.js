@@ -36,9 +36,37 @@ const API = {
     if (error) throw error;
   },
   async crearUsuario(email, password, nombre, rol) {
-    const { data, error } = await db.functions.invoke('crear-usuario', { body: { email, password, nombre, rol } });
+    // Usa función SQL directa (sin Edge Function)
+    const { data, error } = await db.rpc('crear_usuario_sistema', {
+      p_email: email,
+      p_password: password,
+      p_nombre: nombre,
+      p_rol: rol
+    });
     if (error) throw error;
     return data;
+  },
+
+  // ── ELIMINAR REGISTROS ─────────────────────────────
+  async eliminarProducto(id) {
+    const { error } = await db.from('productos').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async eliminarMovimiento(id) {
+    const { error } = await db.from('movimientos').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async eliminarProveedor(id) {
+    const { error } = await db.from('proveedores').update({ activo: false }).eq('id', id);
+    if (error) throw error;
+  },
+  async eliminarPedido(id) {
+    const { error } = await db.from('pedidos').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async eliminarUsuario(userId) {
+    const { error } = await db.from('perfiles').delete().eq('id', userId);
+    if (error) throw error;
   },
 
   // ── ALMACENES ─────────────────────────────────────

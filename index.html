@@ -61,9 +61,8 @@
   <!-- NAV -->
   <nav class="nav">
     <button class="nav-btn active" onclick="goTo('dashboard',this)" data-modulo="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
-    <button class="nav-btn" onclick="goTo('dir',this)" data-modulo="dir"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Dirección</button>
-    <button class="nav-btn" onclick="goTo('entradas',this)" data-modulo="entradas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>Entradas</button>
-    <button class="nav-btn" onclick="goTo('salidas',this)" data-modulo="salidas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 7 12 3 8 7"/><line x1="12" y1="12" x2="12" y2="3"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>Salidas</button>
+    <button class="nav-btn" onclick="goTo('dir',this)" data-modulo="dir" style="display:none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Dirección</button>
+    <button class="nav-btn" onclick="goTo('movstock',this)" data-modulo="entradas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Entradas/Salidas</button>
     <button class="nav-btn" onclick="goTo('scanner',this)" data-modulo="scanner"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Escanear</button>
     <button class="nav-btn" onclick="goTo('inventario',this)" data-modulo="inventario"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</button>
     <button class="nav-btn" onclick="goTo('conteo',this)" data-modulo="conteo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Conteo</button>
@@ -120,13 +119,23 @@
       </div>
       <div id="sync-pending" class="sync-banner hidden">⚠ <span id="sync-count">0</span> movimientos offline. <button class="btn btn-sm" onclick="sincronizarOffline()">Sincronizar</button></div>
       <div class="card"><div class="card-header">Últimos movimientos</div><div id="dash-movs"><div class="loading">Cargando...</div></div></div>
+      <!-- Dashboard dirección integrado -->
+      <div id="dir-content-inline"></div>
     </section>
 
-    <!-- DASHBOARD DIRECCIÓN -->
+    <!-- DASHBOARD DIRECCIÓN (oculto, integrado en dashboard principal) -->
     <section id="tab-dir" class="tab hidden">
-      <div class="page-header"><div class="page-title">Dashboard Dirección</div><button class="btn btn-sm" onclick="cargarDashboardDir()">↻ Actualizar</button></div>
-      <div id="dir-content"><div class="loading">Cargando...</div></div>
+      <div id="dir-content"></div>
     </section>
+
+    <!-- ENTRADAS / SALIDAS UNIFICADO -->
+    <section id="tab-movstock" class="tab hidden">
+      <div class="page-header"><div class="page-title">Entradas y Salidas</div></div>
+      <!-- Selector de tipo -->
+      <div class="movstock-tabs">
+        <button class="movstock-tab active" id="ms-tab-ent" onclick="switchMovStock('entrada')">↓ Registrar Entrada</button>
+        <button class="movstock-tab" id="ms-tab-sal" onclick="switchMovStock('salida')">↑ Registrar Salida</button>
+      </div>
 
     <!-- ENTRADAS -->
     <section id="tab-entradas" class="tab hidden">
@@ -199,6 +208,8 @@
         <button class="btn btn-full" style="margin-top:6px" onclick="cancelarSalida()">Cancelar</button>
       </div>
     </section>
+
+    </section><!-- end tab-movstock -->
 
     <!-- SCANNER -->
     <section id="tab-scanner" class="tab hidden">
@@ -279,7 +290,7 @@
         <button class="btn btn-primary btn-full" onclick="mostrarFormProducto()">+ Agregar producto manualmente</button>
         <div id="form-producto" class="card hidden" style="margin-top:12px">
           <div class="card-header">Nuevo producto</div>
-          <div class="form-row"><div class="form-group"><label>Código único</label><input class="input" type="text" id="np-id" placeholder="QM-008"></div><div class="form-group"><label>Nombre</label><input class="input" type="text" id="np-nombre"></div></div>
+          <div class="form-row"><div class="form-group"><label>Código (se genera automático si lo dejas vacío)</label><input class="input" type="text" id="np-id" placeholder="Ej: QM-008 (opcional)"></div><div class="form-group"><label>Nombre</label><input class="input" type="text" id="np-nombre"></div></div>
           <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="np-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="np-min" placeholder="0"></div></div>
           <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option></select></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="np-precio" placeholder="0.00"></div></div>
           <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov"></div><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="np-ubicacion" placeholder="Pasillo A-3"></div></div>
@@ -419,7 +430,7 @@
         <div class="card-header">Nuevo usuario</div>
         <div class="form-row"><div class="form-group"><label>Nombre</label><input class="input" type="text" id="nu-nombre"></div><div class="form-group"><label>Correo</label><input class="input" type="email" id="nu-email"></div></div>
         <div class="form-row"><div class="form-group"><label>Contraseña</label><input class="input" type="text" id="nu-pass" placeholder="Mín. 8 caracteres"></div><div class="form-group"><label>Rol</label><select class="input" id="nu-rol"><option value="operador">Operador</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option></select></div></div>
-        <button class="btn btn-primary btn-full" onclick="crearUsuario()">Crear usuario</button>
+        <button class="btn btn-primary btn-full" id="btn-crear-usuario" onclick="crearUsuario()">Crear usuario</button>
         <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-usuario').classList.add('hidden')">Cancelar</button>
       </div>
     </section>
