@@ -9,6 +9,8 @@ async function cargarKPIs() {
   el.innerHTML = '<div class="loading">Calculando KPIs...</div>';
 
   try {
+    // Limpiar caché antes de cargar para garantizar datos frescos
+    if (typeof todosProductos !== 'undefined') window.todosProductos = [];
     const [prods, movs] = await Promise.all([
       API.getProductos(),
       API.getMovimientos(1000)

@@ -49,7 +49,8 @@ const API = {
 
   // ── ELIMINAR REGISTROS ─────────────────────────────
   async eliminarProducto(id) {
-    const { error } = await db.from('productos').delete().eq('id', id);
+    // Soft delete: marcar como inactivo en lugar de borrar físicamente
+    const { error } = await db.from('productos').update({ activo: false, stock: 0 }).eq('id', id);
     if (error) throw error;
   },
   async eliminarMovimiento(id) {
@@ -86,7 +87,7 @@ const API = {
 
   // ── PRODUCTOS ─────────────────────────────────────
   async getProductos(almacenId) {
-    let q = db.from('productos').select('*').order('nombre');
+    let q = db.from('productos').select('*').eq('activo', true).order('nombre');
     if (almacenId) q = q.eq('almacen_id', almacenId);
     const { data, error } = await q;
     if (error) throw error;
@@ -96,9 +97,9 @@ const API = {
   async getProducto(id) {
     if (typeof Offline !== 'undefined' && !Offline.isOnline()) {
       const cache = Offline.getCacheProductos();
-      if (cache) return cache.find(p => p.id === id) || null;
+      if (cache) return cache.find(p => p.id === id && p.activo !== false) || null;
     }
-    const { data, error } = await db.from('productos').select('*').eq('id', id).single();
+    const { data, error } = await db.from('productos').select('*').eq('id', id).eq('activo', true).single();
     if (error) return null;
     return data;
   },
