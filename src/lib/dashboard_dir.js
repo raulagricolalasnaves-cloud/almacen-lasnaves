@@ -3,7 +3,16 @@
 //  KPIs ejecutivos + valor de inventario
 // =====================================================
 
+async function cargarDashboardDirInline(targetDiv) {
+  await _cargarDirData(targetDiv);
+}
+
 async function cargarDashboardDir() {
+  const target = document.getElementById('dir-content') || document.getElementById('dir-content-inline');
+  if (target) await _cargarDirData(target);
+}
+
+async function _cargarDirData(targetDiv) {
   document.getElementById('dir-content').innerHTML = '<div class="loading">Cargando dashboard ejecutivo...</div>';
   try {
     const [prods, movs, peds, provs] = await Promise.all([
@@ -14,6 +23,7 @@ async function cargarDashboardDir() {
     const hace30 = new Date(); hace30.setDate(hace30.getDate()-30);
 
     // KPIs
+    const prodsConStock = prods.filter(p => Number(p.stock) > 0);
     const valorTotal = prods.reduce((s,p) => s + (Number(p.stock)*Number(p.precio_unitario||0)), 0);
     const stockBajo  = prods.filter(p => Number(p.stock) <= Number(p.min)).length;
     const porcaducar = prods.filter(p => p.caducidad && Math.floor((new Date(p.caducidad)-hoy)/86400000) < 90).length;
@@ -38,7 +48,7 @@ async function cargarDashboardDir() {
       porPeligro[k] = (porPeligro[k]||0) + (Number(p.stock)*Number(p.precio_unitario||0));
     });
 
-    document.getElementById('dir-content').innerHTML = `
+    targetDiv.innerHTML = `
       <!-- KPIs principales -->
       <div class="metrics" style="margin-bottom:14px">
         <div class="metric-card">
@@ -47,7 +57,7 @@ async function cargarDashboardDir() {
         </div>
         <div class="metric-card">
           <div class="metric-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8"/></svg></div>
-          <div class="metric-body"><div class="metric-val">${prods.length}</div><div class="metric-label">Productos en stock</div></div>
+          <div class="metric-body"><div class="metric-val">${prodsConStock.length}</div><div class="metric-label">Productos en stock</div></div>
         </div>
         <div class="metric-card">
           <div class="metric-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg></div>
@@ -122,6 +132,6 @@ async function cargarDashboardDir() {
       </div>
     `;
   } catch(e) {
-    document.getElementById('dir-content').innerHTML = '<div class="empty">Error al cargar el dashboard</div>';
+    targetDiv.innerHTML = '<div class="empty">Error al cargar</div>';
   }
 }

@@ -22,6 +22,7 @@ const MODULOS = [
   { key:'respaldo',        label:'Respaldo de datos',       desc:'Descargar respaldo en Excel' },
   { key:'auditoria',       label:'Auditoría',               desc:'Historial completo de cambios' },
   { key:'almacenes',       label:'Gestión de almacenes',    desc:'Crear y cambiar entre almacenes' },
+  { key:'usuarios_admin',  label:'Gestión de usuarios',     desc:'Crear y administrar usuarios del sistema' },
 ];
 
 // Permisos predeterminados para nuevos usuarios (ninguno)

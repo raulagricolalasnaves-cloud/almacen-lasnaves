@@ -155,7 +155,9 @@ function goTo(tab, btn) {
     almacenes: cargarAlmacenes, dir: cargarDashboardDir,
     movstock: () => switchMovStock('entrada'),
     entradas: iniciarEntradas, salidas: iniciarSalidas,
+    scanner: () => {}, // scanner integrado en entradas/salidas
     conteo: () => { const el=document.getElementById('conteo-almacen-nombre'); if(el) el.textContent=almacenActivo?.nombre||''; },
+    kpis: cargarKPIs,
     'pedidos-clientes': cargarPedidosClientesCompleto,
     notificaciones: cargarNotificaciones,
     respaldo: () => {},
@@ -661,19 +663,16 @@ function switchMovStock(tipo) {
 // ── DASHBOARD UNIFICADO ───────────────────────────────
 async function cargarDashboardUnificado() {
   await cargarDashboard();
-  // Cargar resumen ejecutivo debajo si el usuario tiene permiso
   const inlineDiv = document.getElementById('dir-content-inline');
   if (!inlineDiv) return;
   if (currentProfile?.rol === 'admin' || tienePermiso('dir')) {
     inlineDiv.innerHTML = '<div class="loading" style="margin-top:12px">Cargando resumen ejecutivo...</div>';
-    // Redirigir output de cargarDashboardDir al div inline
-    const tempDiv = document.createElement('div');
-    tempDiv.id = 'dir-content';
-    tempDiv.style.display = 'none';
-    document.body.appendChild(tempDiv);
-    await cargarDashboardDir();
-    inlineDiv.innerHTML = tempDiv.innerHTML;
-    tempDiv.remove();
+    try {
+      // Llamar directamente a la función y capturar el HTML resultante
+      await cargarDashboardDirInline(inlineDiv);
+    } catch(e) {
+      inlineDiv.innerHTML = '';
+    }
   } else {
     inlineDiv.innerHTML = '';
   }
