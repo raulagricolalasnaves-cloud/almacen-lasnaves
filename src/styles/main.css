@@ -537,3 +537,41 @@ label { font-size: 12px; font-weight: 500; color: var(--text2); }
 .kpi-mini-val.amber{color:var(--amber)}
 .kpi-mini-val.blue{color:var(--blue)}
 .kpi-mini-label{font-size:11px;color:var(--text2);margin-top:3px}
+
+/* ── CONTEO FÍSICO v17 ── */
+.conteo-fila{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:10px;transition:background .15s}
+.conteo-fila.contado{background:var(--green-bg);border-radius:var(--radius-sm);padding:10px 8px;margin-bottom:4px;border-bottom:none}
+.conteo-fila-info{flex:1;min-width:0}
+.conteo-fila-nombre{font-size:13px;font-weight:500;color:var(--text)}
+.conteo-fila-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.conteo-fila-derecha{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.conteo-fisico-val{font-size:13px;font-weight:600;color:var(--navy);font-family:'DM Mono',monospace;text-align:right}
+.conteo-fisico-val.pos .conteo-diff{color:var(--green);font-size:11px;display:block}
+.conteo-fisico-val.neg .conteo-diff{color:var(--red);font-size:11px;display:block}
+.conteo-fisico-val.igual .conteo-diff{color:var(--green);font-size:11px;display:block}
+.conteo-input{width:110px;font-family:'DM Mono',monospace}
+.conteo-progreso-wrap{background:var(--bg);border-radius:10px;height:8px;margin:8px 0;overflow:hidden}
+.conteo-progreso-bar-inner{height:100%;background:var(--green);border-radius:10px;transition:width .3s}
+.rev-item{display:flex;align-items:flex-start;justify-content:space-between;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;gap:10px;flex-wrap:wrap}
+.rev-item.rev-ajustado{border-color:var(--green);background:var(--green-bg);opacity:.7}
+.rev-item.rev-ignorado{opacity:.5}
+.rev-info{flex:1;min-width:0}
+.rev-nombre{font-size:13px;font-weight:600;color:var(--navy)}
+.rev-detalle{font-size:12px;color:var(--text2);margin-top:3px}
+.rev-acciones{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.diff-pos{color:var(--green);font-weight:600}
+.diff-neg{color:var(--red);font-weight:600}
+.conteo-paso{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.conteo-paso-num{width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.conteo-paso-label{font-size:13px;font-weight:500;color:var(--navy)}
+
+/* ── INVENTARIO CARDS v19 ── */
+.inv-card{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.inv-card-header{display:flex;align-items:flex-start;justify-content:space-between;padding:12px;gap:10px;transition:background .1s}
+.inv-card-header:hover{background:var(--bg)}
+.prod-info-panel{padding:12px;border-top:1px solid var(--border);background:var(--bg)}
+.prod-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.prod-info-item{font-size:12px;color:var(--text2)}
+.prod-info-item.full{grid-column:1/-1}
+.prod-info-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:1px}
+.prod-toggle-icon{transition:transform .2s;display:inline-block}

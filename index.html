@@ -39,7 +39,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <div class="topbar-left">
-      <img src="public/logo.png" alt="Logo" class="topbar-logo">
+      <img src="public/logo.png" alt="Logo" class="topbar-logo" onclick="location.reload()" style="cursor:pointer" title="Recargar página">
       <div><div class="topbar-title">Las Naves Agrícola</div><div class="topbar-sub">ERP Almacén</div></div>
     </div>
     <div class="topbar-right">
@@ -61,7 +61,6 @@
   <!-- NAV -->
   <nav class="nav">
     <button class="nav-btn active" onclick="goTo('dashboard',this)" data-modulo="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
-    <button class="nav-btn" onclick="goTo('kpis',this)" data-modulo="dashboard"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/><circle cx="18" cy="7" r="3"/><circle cx="12" cy="4" r="0"/></svg>KPIs</button>
     <button class="nav-btn" onclick="goTo('movstock',this)" data-modulo="entradas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Entradas/Salidas</button>
     <button class="nav-btn" onclick="goTo('inventario',this)" data-modulo="inventario"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</button>
     <button class="nav-btn" onclick="goTo('conteo',this)" data-modulo="conteo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Conteo</button>
@@ -124,9 +123,16 @@
         <div class="metric-card"><div class="metric-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="metric-body"><div class="metric-val" id="m-ped">—</div><div class="metric-label">Pedidos activos</div></div></div>
       </div>
       <div id="sync-pending" class="sync-banner hidden">⚠ <span id="sync-count">0</span> movimientos offline. <button class="btn btn-sm" onclick="sincronizarOffline()">Sincronizar</button></div>
+      <!-- KPIs rápidos en dashboard -->
+      <div id="dash-kpis-quick" style="margin-bottom:10px"></div>
       <div class="card"><div class="card-header">Últimos movimientos</div><div id="dash-movs"><div class="loading">Cargando...</div></div></div>
       <!-- Dashboard dirección integrado -->
       <div id="dir-content-inline"></div>
+    </section>
+
+    <!-- KPI tab (hidden, redirects to dashboard) -->
+    <section id="tab-kpis" class="tab hidden">
+      <div id="kpi-content"></div>
     </section>
 
 <!-- dir tab removed - content integrated in dashboard -->
@@ -149,42 +155,37 @@
         <button class="movstock-tab" id="ms-tab-sal" onclick="switchMovStock('salida')">↑ Registrar Salida</button>
       </div>
 
-    <!-- ENTRADAS -->
     <section id="tab-entradas" class="tab hidden">
       <div class="page-header"><div class="page-title">Registro de Entradas</div></div>
       <div class="card">
-        <div class="card-header">Buscar producto</div>
-        <input class="input" type="text" id="ent-buscar" placeholder="Escribe nombre o código..." oninput="buscarProductoEntrada(this.value)">
-        <div id="ent-resultados" style="margin-top:8px"></div>
+        <div class="card-header">Buscar y agregar productos</div>
+        <div class="scanner-inline">
+          <div class="scanner-inline-title">📷 Escanear código</div>
+          <div id="reader-ent" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-sm btn-primary" onclick="startScannerEnt()">▶ Escanear</button>
+            <button class="btn btn-sm" onclick="stopScannerEnt()">■ Detener</button>
+          </div>
+        </div>
+        <input class="input" type="text" id="ent-buscar" placeholder="Buscar por nombre o código..." oninput="buscarProductoEntrada(this.value)" style="margin-top:8px">
+        <div id="ent-resultados" style="margin-top:6px"></div>
       </div>
-      <!-- Scanner integrado en entradas -->
-      <div class="scanner-inline">
-        <div class="scanner-inline-title">📷 Escanear para buscar producto automáticamente</div>
-        <div id="reader-ent" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-sm btn-primary" onclick="startScannerEnt()">▶ Escanear</button>
-          <button class="btn btn-sm" onclick="stopScannerEnt()">■ Detener</button>
+      <div id="ent-carrito-card" class="card hidden">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>↓ Productos a ingresar</span>
+          <span id="ent-carrito-count" style="font-size:12px;color:var(--green);font-weight:600"></span>
         </div>
+        <div id="ent-carrito-lista"></div>
+        <button class="btn btn-sm" style="margin-top:8px;color:var(--navy)" onclick="document.getElementById('ent-buscar').focus()">+ Agregar otro producto</button>
       </div>
-
-      <div id="ent-form-card" class="card hidden">
-        <div class="card-header">↓ Entrada — <span id="ent-prod-nombre" style="color:var(--green)"></span></div>
-        <div class="inv-item" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-          <div><div class="inv-name" id="ent-prod-id"></div><div class="inv-sub">Stock actual: <strong id="ent-prod-stock"></strong></div></div>
-        </div>
-        <div id="ent-sds-banner"></div>
+      <div id="ent-form-general" class="card hidden">
+        <div class="card-header">Datos del recibo</div>
         <div class="form-row">
-          <div class="form-group"><label>Cantidad</label><input class="input" type="number" id="ent-qty" min="1" placeholder="0"></div>
-          <div class="form-group"><label>Unidad</label><select class="input" id="ent-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
+          <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ent-prov" placeholder="Nombre del proveedor"></div>
+          <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="ent-nota" placeholder="Observaciones"></div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="ent-lote" placeholder="L-2025-04"></div>
-          <div class="form-group"><label>Fecha de caducidad</label><input class="input" type="date" id="ent-cad"></div>
-        </div>
-        <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ent-prov" placeholder="Nombre del proveedor"></div>
-        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="ent-nota" placeholder="Observaciones"></div>
         <div class="form-group">
-          <span class="foto-label">📄 Foto del recibo del proveedor *</span>
+          <span class="foto-label">📄 Foto del recibo * <span style="font-size:11px;color:var(--text3)">(una foto para todos los productos)</span></span>
           <div class="foto-zona" onclick="document.getElementById('ent-foto-input').click()">
             <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
             <input type="file" id="ent-foto-input" accept="image/*" capture="environment" onchange="onFotoEntrada(this)">
@@ -192,42 +193,48 @@
           <span class="foto-status sin-foto" id="ent-foto-status">Sin foto</span>
           <img id="ent-foto-preview" class="foto-preview hidden" src="" alt="Preview">
         </div>
-        <button class="btn btn-primary btn-full" onclick="solicitarPinEntrada()">🔐 Confirmar entrada</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarEntrada()">Cancelar</button>
+        <button class="btn btn-primary btn-full" onclick="solicitarPinEntrada()">🔐 Confirmar entrada de todos los productos</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarEntrada()">Cancelar todo</button>
       </div>
     </section>
 
     <!-- SALIDAS -->
     <section id="tab-salidas" class="tab hidden">
       <div class="page-header"><div class="page-title">Registro de Salidas</div></div>
+      <!-- Buscador -->
       <div class="card">
-        <div class="card-header">Buscar producto</div>
-        <!-- Scanner integrado en salidas -->
+        <div class="card-header">Buscar y agregar productos</div>
         <div class="scanner-inline">
-          <div class="scanner-inline-title">📷 Escanear para buscar producto automáticamente</div>
+          <div class="scanner-inline-title">📷 Escanear código</div>
           <div id="reader-sal" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn btn-sm btn-primary" onclick="startScannerSal()">▶ Escanear</button>
             <button class="btn btn-sm" onclick="stopScannerSal()">■ Detener</button>
           </div>
         </div>
-        <input class="input" type="text" id="sal-buscar" placeholder="Escribe nombre o código..." oninput="buscarProductoSalida(this.value)" style="margin-top:8px">
-        <div id="sal-resultados" style="margin-top:8px"></div>
+        <input class="input" type="text" id="sal-buscar" placeholder="Buscar por nombre o código..." oninput="buscarProductoSalida(this.value)" style="margin-top:8px">
+        <div id="sal-resultados" style="margin-top:6px"></div>
       </div>
-      <div id="sal-form-card" class="card hidden">
-        <div class="card-header">↑ Salida — <span id="sal-prod-nombre" style="color:var(--red)"></span></div>
-        <div class="inv-item" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-          <div><div class="inv-name" id="sal-prod-id"></div><div class="inv-sub">Stock actual: <strong id="sal-prod-stock"></strong></div></div>
+
+      <!-- Carrito salidas -->
+      <div id="sal-carrito-card" class="card hidden">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>↑ Productos a despachar</span>
+          <span id="sal-carrito-count" style="font-size:12px;color:var(--red);font-weight:600"></span>
         </div>
-        <div id="sal-sds-banner"></div>
+        <div id="sal-carrito-lista"></div>
+        <button class="btn btn-sm" style="margin-top:8px;color:var(--navy)" onclick="document.getElementById('sal-buscar').focus();document.getElementById('sal-buscar').scrollIntoView({behavior:'smooth'})">+ Agregar otro producto</button>
+      </div>
+
+      <!-- Datos generales del vale -->
+      <div id="sal-form-general" class="card hidden">
+        <div class="card-header">Datos del despacho</div>
         <div class="form-row">
-          <div class="form-group"><label>Cantidad</label><input class="input" type="number" id="sal-qty" min="1" placeholder="0"></div>
-          <div class="form-group"><label>Unidad</label><select class="input" id="sal-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
+          <div class="form-group"><label>Área o destino</label><input class="input" type="text" id="sal-dest" placeholder="Ej: Producción A"></div>
+          <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="sal-nota" placeholder="Observaciones"></div>
         </div>
-        <div class="form-group"><label>Área o destino</label><input class="input" type="text" id="sal-dest" placeholder="Ej: Producción A"></div>
-        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="sal-nota" placeholder="Observaciones"></div>
         <div class="form-group">
-          <span class="foto-label">📋 Foto del vale de entrega *</span>
+          <span class="foto-label">📋 Foto del vale de entrega * <span style="font-size:11px;color:var(--text3)">(una sola foto para todos los productos)</span></span>
           <div class="foto-zona" onclick="document.getElementById('sal-foto-input').click()">
             <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
             <input type="file" id="sal-foto-input" accept="image/*" capture="environment" onchange="onFotoSalida(this)">
@@ -235,8 +242,8 @@
           <span class="foto-status sin-foto" id="sal-foto-status">Sin foto</span>
           <img id="sal-foto-preview" class="foto-preview hidden" src="" alt="Preview">
         </div>
-        <button class="btn btn-primary btn-full" onclick="solicitarPinSalida()">🔐 Confirmar salida</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarSalida()">Cancelar</button>
+        <button class="btn btn-primary btn-full" onclick="solicitarPinSalida()">🔐 Confirmar salida de todos los productos</button>
+        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarSalida()">Cancelar todo</button>
       </div>
     </section>
 
@@ -303,8 +310,21 @@
         <div class="form-row"><div class="form-group"><label>Código (automático si vacío)</label><input class="input" type="text" id="alta-id" style="background:var(--bg);font-family:'DM Mono',monospace"></div><div class="form-group"><label>Nombre <span style="color:var(--red)">*</span></label><input class="input" type="text" id="alta-nombre" placeholder="Nombre del producto"></div></div>
         <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="alta-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="alta-min" placeholder="0"></div></div>
         <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="alta-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="alta-prov"></div></div>
-        <div class="form-row"><div class="form-group"><label>Lote</label><input class="input" type="text" id="alta-lote"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="alta-cad"></div></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Lote</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-weight:400;margin-bottom:4px"><input type="checkbox" id="alta-sin-lote" onchange="document.getElementById('alta-lote').disabled=this.checked;if(this.checked)document.getElementById('alta-lote').value=''"> Sin número de lote</label>
+            <input class="input" type="text" id="alta-lote" placeholder="Ej: L-2025-04">
+          </div>
+          <div class="form-group">
+            <label>Caducidad</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-weight:400;margin-bottom:4px"><input type="checkbox" id="alta-sin-cad" onchange="document.getElementById('alta-cad').disabled=this.checked;if(this.checked)document.getElementById('alta-cad').value=''"> Sin fecha de caducidad</label>
+            <input class="input" type="text" id="alta-cad" placeholder="DD/MM/AAAA o AAAA-MM-DD">
+          </div>
+        </div>
         <div class="form-row"><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="alta-ubicacion" placeholder="Ej: Pasillo A-3"></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="alta-precio" placeholder="0.00"></div></div>
+        <div class="form-row"><div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="alta-ingrediente" placeholder="Ej: Glifosato, Cobre"></div><div class="form-group"><label>Descripción</label><input class="input" type="text" id="alta-descripcion" placeholder="Descripción breve"></div></div>
+        <div class="form-group"><label>🔗 Link ficha técnica (SDS)</label><input class="input" type="url" id="alta-sds-link" placeholder="https://..."></div>
         <button class="btn btn-primary btn-full" id="btn-guardar-alta" onclick="guardarProductoDesdeScanner()">✓ Dar de alta producto</button>
         <button class="btn btn-full" style="margin-top:6px" onclick="limpiarScanner()">Cancelar</button>
       </div>
@@ -326,40 +346,90 @@
           <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option></select></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="np-precio" placeholder="0.00"></div></div>
           <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov"></div><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="np-ubicacion" placeholder="Pasillo A-3"></div></div>
           <div class="form-row"><div class="form-group"><label>Lote</label><input class="input" type="text" id="np-lote"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="np-cad"></div></div>
+          <div class="form-row"><div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="np-ingrediente" placeholder="Ej: Glifosato, Cobre..."></div><div class="form-group"><label>Descripción</label><input class="input" type="text" id="np-descripcion" placeholder="Descripción breve del producto"></div></div>
           <div class="form-row"><div class="form-group"><label>Peligrosidad GHS</label><select class="input" id="np-peligro"><option value="">Sin clasificar</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option><option value="ninguno">Ninguno</option></select></div><div class="form-group"><label>Clases GHS (coma)</label><input class="input" type="text" id="np-ghs" placeholder="inflamable,corrosivo"></div></div>
+          <div class="form-group"><label>🔗 Link de ficha técnica (SDS)</label><input class="input" type="url" id="np-sds-link" placeholder="https://... (URL de la ficha técnica)"></div>
           <button class="btn btn-primary btn-full" onclick="guardarProducto()">Guardar producto</button>
           <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-producto').classList.add('hidden')">Cancelar</button>
         </div>
       </div>
     </section>
 
-    <!-- CONTEO FÍSICO -->
+    <!-- CONTEO FÍSICO v17 -->
     <section id="tab-conteo" class="tab hidden">
-      <div class="page-header"><div class="page-title">Inventario Físico</div></div>
-      <div class="card">
-        <div class="card-header">Conteo cíclico — <span id="conteo-almacen-nombre" style="color:var(--navy)"></span></div>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Ingresa la cantidad física de cada producto. El sistema calculará las diferencias y ajustará el stock automáticamente.</p>
-        <button class="btn btn-primary btn-full" onclick="iniciarConteoFisico()">▶ Iniciar conteo físico</button>
-      </div>
-      <div id="conteo-form" class="hidden">
+      <div class="page-header"><div class="page-title">Conteo Físico</div></div>
+
+      <!-- PANTALLA 1: INICIO -->
+      <div id="conteo-inicio">
         <div class="card">
-          <div class="card-header">Conteo en curso</div>
+          <div style="display:flex;gap:12px;margin-bottom:16px">
+            <div class="conteo-paso"><div class="conteo-paso-num">1</div><div class="conteo-paso-label">Iniciar conteo</div></div>
+            <div style="color:var(--text3);align-self:center">→</div>
+            <div class="conteo-paso"><div class="conteo-paso-num" style="background:var(--border);color:var(--text2)">2</div><div class="conteo-paso-label" style="color:var(--text2)">Capturar cantidades</div></div>
+            <div style="color:var(--text3);align-self:center">→</div>
+            <div class="conteo-paso"><div class="conteo-paso-num" style="background:var(--border);color:var(--text2)">3</div><div class="conteo-paso-label" style="color:var(--text2)">Revisar y ajustar</div></div>
+            <div style="color:var(--text3);align-self:center">→</div>
+            <div class="conteo-paso"><div class="conteo-paso-num" style="background:var(--border);color:var(--text2)">4</div><div class="conteo-paso-label" style="color:var(--text2)">Firmar PDF</div></div>
+          </div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+            El sistema cargará todos los productos del inventario. Tú ingresas la cantidad que hay físicamente en el almacén.
+            Al terminar, verás las diferencias y decides qué ajustar. Todo queda registrado con PDF para firma.
+          </p>
+          <button class="btn btn-primary btn-full" onclick="iniciarNuevoConteo()" style="margin-bottom:8px">▶ Iniciar nuevo conteo físico</button>
+          <p style="font-size:11px;color:var(--text3);text-align:center">Si cierras accidentalmente el navegador, el conteo se recupera automáticamente</p>
+        </div>
+      </div>
+
+      <!-- PANTALLA 2: CONTEO EN CURSO -->
+      <div id="conteo-activo" class="hidden">
+        <div class="card" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Conteo en curso</div>
+              <div style="font-size:11px;color:var(--text2)" id="conteo-fecha"></div>
+            </div>
+            <button class="btn btn-sm" style="color:var(--red)" onclick="descartarConteo()">✕ Descartar</button>
+          </div>
+          <div class="conteo-progreso-wrap">
+            <div class="conteo-progreso-bar-inner" id="conteo-progreso-bar" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px" id="conteo-progreso-txt">0 de 0 productos contados</div>
+        </div>
+        <div class="card">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+            💡 Ingresa la cantidad física y presiona <strong>Enter</strong> para pasar al siguiente producto
+          </div>
           <div id="conteo-lista"></div>
-          <div class="form-group" style="margin-top:12px"><label>Nota del conteo</label><input class="input" type="text" id="conteo-nota" placeholder="Observaciones generales"></div>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button class="btn btn-primary" style="flex:1" id="btn-guardar-conteo" onclick="guardarConteoFisico()">Guardar conteo y ajustar stock</button>
-            <button class="btn" style="flex:1" onclick="cancelarConteo()">Cancelar</button>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <button class="btn btn-primary" style="flex:2" id="btn-finalizar-conteo" onclick="revisarDiferencias()" disabled>
+              Revisar diferencias
+            </button>
+            <button class="btn" style="flex:1" onclick="descartarConteo()">Descartar</button>
           </div>
         </div>
       </div>
-      <div id="conteo-resultado" class="hidden">
-        <div class="card">
-          <div class="card-header">Resultado del conteo</div>
-          <div class="metrics" id="conteo-resumen" style="margin-bottom:12px"></div>
-          <div id="conteo-diffs"></div>
-          <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="document.getElementById('conteo-resultado').classList.add('hidden')">Finalizar</button>
+
+      <!-- PANTALLA 3: REVISIÓN -->
+      <div id="conteo-revision" class="hidden">
+        <div class="card" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:14px;font-weight:600;color:var(--navy)">Revisión de diferencias</div>
+            <button class="btn btn-sm" onclick="renderConteoEnCurso()">← Volver al conteo</button>
+          </div>
+          <div id="rev-resumen"></div>
+        </div>
+        <div class="card" style="margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">
+            Productos con diferencia — decide qué hacer con cada uno:
+          </div>
+          <div id="rev-diffs"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="flex:1" onclick="generarPDFConteo()">📄 Generar PDF para firma</button>
+          <button class="btn btn-green" style="flex:1" onclick="finalizarConteo()">✓ Finalizar conteo</button>
         </div>
       </div>
+
     </section>
 
     <!-- MOVIMIENTOS -->
@@ -635,6 +705,44 @@
   </main>
 </div>
 
+<!-- MODAL EDITAR PRODUCTO -->
+<div id="modal-editar-prod" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width:520px;max-height:90vh;overflow-y:auto">
+    <div class="modal-title">✏ Editar producto</div>
+    <input type="hidden" id="ep-id">
+    <div class="form-row">
+      <div class="form-group"><label>Nombre *</label><input class="input" type="text" id="ep-nombre"></div>
+      <div class="form-group"><label>Unidad</label><select class="input" id="ep-unidad"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option><option>mL</option><option>g</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Stock actual</label><input class="input" type="number" id="ep-stock" min="0" step="0.01"></div>
+      <div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="ep-min" min="0" step="0.01"></div>
+      <div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="ep-precio" min="0" step="0.01"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ep-prov"></div>
+      <div class="form-group"><label>Ubicación</label><input class="input" type="text" id="ep-ubicacion" placeholder="Pasillo A-3"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Lote</label><input class="input" type="text" id="ep-lote"></div>
+      <div class="form-group"><label>Caducidad (AAAA-MM-DD)</label><input class="input" type="text" id="ep-cad" placeholder="2026-12-31"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="ep-ingrediente" placeholder="Ej: Glifosato"></div>
+      <div class="form-group"><label>Descripción</label><input class="input" type="text" id="ep-descripcion"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Peligrosidad</label><select class="input" id="ep-peligro"><option value="">Sin clasificar</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option><option value="ninguno">Ninguno</option></select></div>
+      <div class="form-group"><label>Clases GHS</label><input class="input" type="text" id="ep-ghs" placeholder="inflamable,corrosivo"></div>
+    </div>
+    <div class="form-group"><label>🔗 Link ficha técnica (SDS)</label><input class="input" type="url" id="ep-sds-link" placeholder="https://..."></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn" style="flex:1" onclick="cerrarEditarProducto()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="guardarEdicionProducto()">✓ Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 <script src="src/lib/config.js"></script>
 <script src="src/lib/api.js"></script>
@@ -643,7 +751,7 @@
 <script src="src/lib/sds.js"></script>
 <script src="src/lib/qr.js"></script>
 <script src="src/lib/scanner.js"></script>
-<script src="src/lib/inventario_fisico.js"></script>
+<script src="src/lib/conteo.js"></script>
 <script src="src/lib/charts.js"></script>
 <script src="src/lib/reports.js"></script>
 <script src="src/lib/proveedores.js"></script>
