@@ -1290,7 +1290,6 @@ async function registrarSalida() {
 function cancelarSalida() { iniciarSalidas(); }
 
 // ── SCANNER INTEGRADO EN ENTRADAS ─────────────────────
-let scannerEnt = null, scannerSal = null;
 
 function startScannerEnt() {
   const el = document.getElementById('reader-ent');
@@ -1327,7 +1326,6 @@ function stopScannerSal() {
 }
 
 // ── FILTRAR PEDIDOS CLIENTES ──────────────────────────
-let todosPedidosClientes = [];
 
 async function cargarPedidosClientesCompleto() {
   document.getElementById('pc-lista').innerHTML = '<div class="loading">Cargando...</div>';
