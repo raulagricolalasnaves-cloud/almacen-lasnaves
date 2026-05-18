@@ -212,7 +212,6 @@ async function cargarDashboard() {
 
 // ── ENTRADAS MULTI-PRODUCTO ───────────────────────────
 let carritoEntrada = []; // [{producto, qty, unidad, lote, cad}]
-let fotoEntrada    = null;
 
 function iniciarEntradas() {
   carritoEntrada = []; fotoEntrada = null;
@@ -368,7 +367,6 @@ function cancelarEntrada() { iniciarEntradas(); }
 
 // ── SALIDAS MULTI-PRODUCTO ────────────────────────────
 let carritoSalida = [];
-let fotoSalida    = null;
 
 function iniciarSalidas() {
   carritoSalida = []; fotoSalida = null;
@@ -992,8 +990,6 @@ async function cargarDashboard() {
 
 
 // ── ENTRADAS MULTI-PRODUCTO ───────────────────────────
-let carritoEntrada = []; // [{producto, qty, unidad, lote, cad}]
-let fotoEntrada    = null;
 
 function iniciarEntradas() {
   carritoEntrada = []; fotoEntrada = null;
@@ -1148,8 +1144,6 @@ async function registrarEntrada() {
 function cancelarEntrada() { iniciarEntradas(); }
 
 // ── SALIDAS MULTI-PRODUCTO ────────────────────────────
-let carritoSalida = [];
-let fotoSalida    = null;
 
 function iniciarSalidas() {
   carritoSalida = []; fotoSalida = null;
