@@ -1510,3 +1510,247 @@ function parseFecha(str) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   return null;
 }
+
+// ── DASHBOARD UNIFICADO ───────────────────────────────
+async function cargarDashboardUnificado() {
+  await cargarDashboard();
+  const inlineDiv = document.getElementById('dir-content-inline');
+  if (!inlineDiv) return;
+  if (currentProfile?.rol === 'admin' || (typeof tienePermiso === 'function' && tienePermiso('dir'))) {
+    inlineDiv.innerHTML = '<div class="loading" style="margin-top:12px">Cargando resumen ejecutivo...</div>';
+    try {
+      await cargarDashboardDirInline(inlineDiv);
+    } catch { inlineDiv.innerHTML = ''; }
+  } else {
+    inlineDiv.innerHTML = '';
+  }
+}
+
+// ── REFRESCAR DASHBOARD ───────────────────────────────
+async function refrescarDashboard(btn) {
+  if (btn) { btn.textContent = '↻ Cargando...'; btn.disabled = true; }
+  todosProductos = [];
+  await cargarDashboardUnificado();
+  if (btn) { btn.textContent = '↻ Actualizar'; btn.disabled = false; }
+  toast('Dashboard actualizado');
+}
+
+// ── FILTRAR INVENTARIO ────────────────────────────────
+function filtrarInv(q) {
+  renderInventario(
+    q ? todosProductos.filter(p =>
+      p.nombre.toLowerCase().includes(q.toLowerCase()) ||
+      p.id.toLowerCase().includes(q.toLowerCase()) ||
+      (p.ubicacion||'').toLowerCase().includes(q.toLowerCase()) ||
+      (p.ingrediente_activo||'').toLowerCase().includes(q.toLowerCase())
+    ) : todosProductos
+  );
+}
+
+// ── MOSTRAR FORM INVENTARIO (alias) ───────────────────
+function mostrarFormProducto() {
+  const f = document.getElementById('form-producto');
+  if (!f) return;
+  f.classList.remove('hidden');
+  f.scrollIntoView({behavior:'smooth'});
+}
+
+// ── FUNCIONES RECUPERADAS ─────────────────────────────
+
+function switchMovStock(tipo) {
+  const entTab = document.getElementById('tab-entradas');
+  const salTab = document.getElementById('tab-salidas');
+  const btnEnt = document.getElementById('ms-tab-ent');
+  const btnSal = document.getElementById('ms-tab-sal');
+  if (tipo === 'entrada') {
+    entTab?.classList.remove('hidden'); salTab?.classList.add('hidden');
+    btnEnt?.classList.add('active');   btnSal?.classList.remove('active');
+    iniciarEntradas();
+  } else {
+    salTab?.classList.remove('hidden'); entTab?.classList.add('hidden');
+    btnSal?.classList.add('active');    btnEnt?.classList.remove('active');
+    iniciarSalidas();
+  }
+}
+
+function cerrarFotoModal() {
+  document.getElementById('foto-modal')?.classList.add('hidden');
+  const img = document.getElementById('foto-modal-img');
+  if (img) img.src = '';
+}
+
+function abrirQRDesdeScanner() {
+  if (typeof productoEscaneado !== 'undefined' && productoEscaneado)
+    mostrarEtiquetaQR(productoEscaneado);
+}
+
+function abrirSDSDesdeScanner() {
+  if (typeof productoEscaneado !== 'undefined' && productoEscaneado)
+    verSDS(productoEscaneado);
+}
+
+async function cargarInventario() {
+  const el = document.getElementById('inv-lista');
+  if (el) el.innerHTML = '<div class="loading">Cargando...</div>';
+  try {
+    todosProductos = await API.getProductos(almacenActivo?.id);
+    renderInventario(todosProductos);
+  } catch { if (el) el.innerHTML = '<div class="empty">Error al cargar</div>'; }
+}
+
+function filtrarMov() {
+  const tipo = document.getElementById('fil-tipo')?.value || '';
+  const user = document.getElementById('fil-user')?.value || '';
+  const f = todosMovimientos.filter(m =>
+    (!tipo || m.tipo === tipo) && (!user || m.usuario_nombre === user)
+  );
+  document.getElementById('mov-lista').innerHTML =
+    f.length ? f.map(renderMovItem).join('') : '<div class="empty">Sin movimientos</div>';
+}
+
+function filtrarAuditoria() {
+  const tipo = document.getElementById('aud-tipo')?.value || '';
+  const user = document.getElementById('aud-user')?.value || '';
+  const f = todaAuditoria.filter(a =>
+    (!tipo || a.tipo === tipo) && (!user || a.usuario_nombre === user)
+  );
+  const icons = { login:'🔑', rol_cambio:'👤', producto_nuevo:'📦', movimiento:'🔄', ajuste:'⚙' };
+  const cls   = { login:'login', rol_cambio:'rol', producto_nuevo:'prod', movimiento:'mov', ajuste:'mov' };
+  document.getElementById('aud-lista').innerHTML = f.length
+    ? f.map(a => `<div class="aud-item">
+        <div class="aud-icon ${cls[a.tipo]||'mov'}">${icons[a.tipo]||'📋'}</div>
+        <div>
+          <div class="aud-name">${a.descripcion||a.tipo}</div>
+          <div class="aud-meta">${a.usuario_nombre||'—'} · ${a.created_at?new Date(a.created_at).toLocaleString('es-MX'):'—'}</div>
+        </div>
+      </div>`).join('')
+    : '<div class="empty">Sin registros</div>';
+}
+
+function mostrarFormUsuario() {
+  const f = document.getElementById('form-usuario');
+  if (!f) return;
+  f.classList.remove('hidden');
+  f.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function crearUsuario() {
+  const nombre = document.getElementById('nu-nombre')?.value.trim();
+  const email  = document.getElementById('nu-email')?.value.trim().toLowerCase();
+  const pass   = document.getElementById('nu-pass')?.value;
+  if (!nombre || !email || !pass) { toast('Completa todos los campos'); return; }
+  if (pass.length < 8) { toast('Contraseña mínimo 8 caracteres'); return; }
+  const btn = document.getElementById('btn-crear-usuario');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+  try {
+    await API.crearUsuario(email, pass, nombre, 'operador');
+    toast('✓ Usuario creado: ' + nombre);
+    document.getElementById('form-usuario')?.classList.add('hidden');
+    ['nu-nombre','nu-email','nu-pass'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.value = '';
+    });
+    cargarUsuarios();
+  } catch(e) {
+    toast('Error: ' + (e.message || 'Verifica que el correo no esté registrado'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Crear usuario'; }
+  }
+}
+
+// agregarProductoPedido — para pedidos a proveedores
+function agregarProductoPedido() {
+  const nombre = document.getElementById('pp-prod-nombre')?.value.trim();
+  const qty    = document.getElementById('pp-prod-qty')?.value.trim();
+  if (!nombre || !qty) { toast('Ingresa nombre y cantidad'); return; }
+  if (typeof pedidoProductos === 'undefined') window.pedidoProductos = [];
+  pedidoProductos.push({ nombre, qty });
+  const el1 = document.getElementById('pp-prod-nombre');
+  const el2 = document.getElementById('pp-prod-qty');
+  if (el1) el1.value = '';
+  if (el2) el2.value = '';
+  renderListaPedidoProductos();
+  toast('Producto agregado al pedido');
+}
+
+function renderListaPedidoProductos() {
+  const lista = document.getElementById('pp-productos-lista');
+  if (!lista) return;
+  if (typeof pedidoProductos === 'undefined') window.pedidoProductos = [];
+  lista.innerHTML = pedidoProductos.length
+    ? pedidoProductos.map((p,i) => `
+        <div class="pedido-prod-item">
+          <div class="pedido-prod-item-name">${p.nombre}</div>
+          <div class="pedido-prod-item-qty">${p.qty}</div>
+          <button class="pedido-prod-remove" onclick="pedidoProductos.splice(${i},1);renderListaPedidoProductos()">✕</button>
+        </div>`).join('')
+    : '<div style="font-size:12px;color:var(--text3);padding:8px 0">Agrega al menos un producto</div>';
+}
+
+function mostrarFormPedido() {
+  if (typeof pedidoProductos === 'undefined') window.pedidoProductos = [];
+  pedidoProductos = [];
+  renderListaPedidoProductos();
+  const f = document.getElementById('form-pedido');
+  if (!f) return;
+  f.classList.remove('hidden');
+  f.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function guardarPedido() {
+  const proveedor = document.getElementById('pp-prov')?.value.trim();
+  if (!proveedor) { toast('Ingresa el proveedor'); return; }
+  if (typeof pedidoProductos === 'undefined' || !pedidoProductos.length) {
+    toast('Agrega al menos un producto'); return;
+  }
+  const peds = await API.getPedidos();
+  const num  = 'PED-' + String(peds.length + 1).padStart(3, '0');
+  const ped  = {
+    num, proveedor,
+    producto:        pedidoProductos.map(p => p.nombre).join(', '),
+    cantidad:        pedidoProductos.map(p => p.qty).join(', '),
+    productos_json:  JSON.stringify(pedidoProductos),
+    fecha_estimada:  document.getElementById('pp-fecha')?.value || '',
+    nota:            document.getElementById('pp-nota')?.value.trim() || '',
+    estado:          'Confirmado',
+    creado_por:      currentProfile?.nombre || currentUser?.email,
+  };
+  try {
+    await API.addPedido(ped);
+    toast('Pedido ' + num + ' creado con ' + pedidoProductos.length + ' producto(s)');
+    document.getElementById('form-pedido')?.classList.add('hidden');
+    pedidoProductos = [];
+    cargarPedidos();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function cargarPedidos() {
+  const el = document.getElementById('ped-lista');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">Cargando...</div>';
+  try {
+    const peds = await API.getPedidos();
+    if (!peds.length) { el.innerHTML = '<div class="empty">Sin pedidos registrados</div>'; return; }
+    el.innerHTML = peds.map(p => {
+      let prods = [];
+      try { prods = JSON.parse(p.productos_json || '[]'); } catch {}
+      const prodsHtml = prods.length
+        ? `<div class="pedido-detalle">${prods.map(pr=>`<div class="pedido-detalle-item">• ${pr.nombre} — ${pr.qty}</div>`).join('')}</div>`
+        : `<div class="pedido-detalle"><div class="pedido-detalle-item">• ${p.producto||'—'} — ${p.cantidad||'—'}</div></div>`;
+      return `<div class="pedido-item">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="pedido-name">${p.num||'PED'} — ${p.proveedor}</div>
+            <div class="pedido-meta">Est: ${p.fecha_estimada||'—'}${p.fecha_entrega_real?' · Real: '+p.fecha_entrega_real:''}</div>
+            ${prodsHtml}
+            ${p.nota?`<div class="pedido-meta">Nota: ${p.nota}</div>`:''}
+          </div>
+          <span class="badge ${p.estado==='Entregado'?'badge-ok':p.estado==='En tránsito'?'badge-info':'badge-warn'}">${p.estado}</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          ${p.estado!=='Entregado'?`<button class="btn btn-sm btn-green" onclick="marcarEntregado('${p.id}')">✓ Entregado</button>`:''}
+          <button class="btn btn-sm" style="color:var(--red)" onclick="eliminarPedido('${p.id}','${p.num||'PED'}')">🗑 Eliminar</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch { el.innerHTML = '<div class="empty">Error al cargar</div>'; }
+}
