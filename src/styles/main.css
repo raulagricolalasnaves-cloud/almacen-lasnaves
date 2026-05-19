@@ -575,3 +575,11 @@ label { font-size: 12px; font-weight: 500; color: var(--text2); }
 .prod-info-item.full{grid-column:1/-1}
 .prod-info-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:1px}
 .prod-toggle-icon{transition:transform .2s;display:inline-block}
+
+/* ── DASHBOARD PANELS v19 ── */
+.dash-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.dash-panel-title{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.dash-panel-item{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
+.dash-panel-item:last-child{border-bottom:none}
+.dash-panel-nombre{font-size:13px;font-weight:500;color:var(--text)}
+.dash-panel-sub{font-size:11px;color:var(--text2);margin-top:2px}
