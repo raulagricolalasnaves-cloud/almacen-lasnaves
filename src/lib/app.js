@@ -1094,3 +1094,127 @@ function renderInventario(lista) {
     </div>`;
   }).join('');
 }
+
+// ── INIT — arranque del sistema ───────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const d = new Date();
+  const el = document.getElementById('dash-date');
+  if (el) el.textContent = d.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
+
+  // Configurar eventos de teclado
+  document.getElementById('l-pass')?.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('pin-pass')?.addEventListener('keydown', e => { if (e.key === 'Enter') confirmPin(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { cerrarFotoModal(); if(typeof cerrarSDS==='function')cerrarSDS(); if(typeof cerrarQR==='function')cerrarQR(); } });
+
+  // Verificar sesión activa
+  const session = await API.getSession();
+  if (session) { currentUser = session.user; await cargarPerfil(); }
+
+  // Escuchar cambios de autenticación
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await cargarPerfil();
+      resetSessionTimer();
+      API.addAuditoria({
+        tipo: 'login',
+        descripcion: 'Inicio de sesión exitoso',
+        usuario_id: session.user.id,
+        usuario_nombre: currentProfile?.nombre || session.user.email,
+        metadata: { timestamp: new Date().toISOString() }
+      });
+    } else if (event === 'SIGNED_OUT') {
+      clearTimeout(sessionTimer);
+      currentUser = null;
+      currentProfile = null;
+      mostrarLogin();
+    }
+  });
+});
+
+// ── FUNCIONES RECUPERADAS (perdidas en limpieza) ───────
+
+function verFoto(url) {
+  const modal = document.getElementById('foto-modal');
+  const img   = document.getElementById('foto-modal-img');
+  if (!modal || !img) return;
+  img.src = url;
+  modal.classList.remove('hidden');
+}
+
+async function eliminarMovimiento(id, nombre) {
+  if (!confirm(`¿Eliminar este movimiento de "${nombre}"?\n\nNota: El stock NO se revertirá automáticamente.`)) return;
+  try {
+    await API.eliminarMovimiento(id);
+    await API.addAuditoria({ tipo:'ajuste', descripcion:`Movimiento eliminado: ${nombre}`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
+    toast('✓ Movimiento eliminado');
+    cargarMovimientos();
+  } catch(e) { toast('Error al eliminar: ' + e.message); }
+}
+
+async function eliminarUsuarioSistema(userId, nombre) {
+  if (userId === currentUser?.id) { toast('No puedes eliminarte a ti mismo'); return; }
+  if (!confirm(`¿Eliminar al usuario "${nombre}"?\n\nSus movimientos y registros se conservan.`)) return;
+  try {
+    await API.eliminarUsuario(userId);
+    await API.addAuditoria({ tipo:'rol_cambio', descripcion:`Usuario eliminado: ${nombre}`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
+    toast('✓ Usuario eliminado: ' + nombre);
+    cargarUsuarios();
+  } catch(e) { toast('Error al eliminar: ' + e.message); }
+}
+
+async function hacerAdmin(userId, nombre) {
+  if (!confirm(`¿Convertir a "${nombre}" en administrador? Tendrá acceso total al sistema.`)) return;
+  try {
+    await API.updateRol(userId, 'admin');
+    await API.addAuditoria({ tipo:'rol_cambio', descripcion:`${nombre} promovido a administrador`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
+    toast('✓ ' + nombre + ' ahora es administrador');
+    cargarUsuarios();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function cambiarRol(userId, nuevoRol, nombre) {
+  try {
+    await API.updateRol(userId, nuevoRol);
+    await API.addAuditoria({ tipo:'rol_cambio', descripcion:`Rol de ${nombre} cambiado a ${nuevoRol}`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
+    toast('Rol actualizado a: ' + nuevoRol);
+    cargarUsuarios();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+function togglePermisosPanel(userId) {
+  const panel = document.getElementById('panel-permisos-' + userId);
+  if (!panel) return;
+  if (!panel.classList.contains('hidden') && panel.innerHTML) {
+    panel.classList.add('hidden'); panel.innerHTML = ''; return;
+  }
+  API.getProfile(userId).then(usuario => {
+    if (typeof renderPanelPermisos === 'function') {
+      panel.innerHTML = renderPanelPermisos(usuario);
+      panel.classList.remove('hidden');
+      panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+  });
+}
+
+async function marcarEntregado(id) {
+  const fechaReal = prompt('¿Cuál fue la fecha real de entrega? (AAAA-MM-DD)\nEjemplo: ' + new Date().toISOString().split('T')[0]);
+  if (fechaReal === null) return;
+  try {
+    await API.updateFechaEntrega(id, fechaReal || new Date().toISOString().split('T')[0]);
+    toast('Pedido marcado como entregado');
+    cargarPedidos();
+  } catch { toast('Error al actualizar'); }
+}
+
+async function seleccionarProductoEntrada(id) {
+  const prod = await API.getProducto(id);
+  if (!prod) return;
+  agregarAlCarritoEntrada(id);
+}
+
+async function seleccionarProductoSalida(id) {
+  const prod = await API.getProducto(id);
+  if (!prod) return;
+  agregarAlCarritoSalida(id);
+}
