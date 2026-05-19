@@ -272,39 +272,27 @@ function mostrarFormularioAlta(codigo) {
 }
 
 async function guardarProductoDesdeScanner() {
-  // Parsear fecha de caducidad (acepta DD/MM/AAAA o AAAA-MM-DD)
-  let cadRaw = document.getElementById('alta-cad')?.value.trim() || '';
-  let cadFinal = null;
-  if (cadRaw && !document.getElementById('alta-sin-cad')?.checked) {
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(cadRaw)) {
-      const [d,m,a] = cadRaw.split('/');
-      cadFinal = `${a}-${m}-${d}`;
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(cadRaw)) {
-      cadFinal = cadRaw;
-    }
-  }
-  const sinLote = document.getElementById('alta-sin-lote')?.checked;
-
   const prod = {
-    id:               document.getElementById('alta-id').value.trim(),
-    nombre:           document.getElementById('alta-nombre').value.trim(),
-    activo:           true,
-    stock:            Number(document.getElementById('alta-stock').value)      || 0,
-    min:              Number(document.getElementById('alta-min').value)        || 0,
-    unidad:           document.getElementById('alta-unit').value               || 'piezas',
-    proveedor:        document.getElementById('alta-prov')?.value.trim()      || '',
-    lote:             sinLote ? '' : (document.getElementById('alta-lote')?.value.trim() || ''),
-    caducidad:        cadFinal,
-    ubicacion:        document.getElementById('alta-ubicacion')?.value.trim() || '',
-    precio_unitario:  Number(document.getElementById('alta-precio')?.value)    || 0,
-    ingrediente_activo: document.getElementById('alta-ingrediente')?.value.trim() || '',
-    descripcion:      document.getElementById('alta-descripcion')?.value.trim() || '',
-    sds_link:         document.getElementById('alta-sds-link')?.value.trim()  || '',
-    almacen_id:       typeof almacenActivo !== 'undefined' ? almacenActivo?.id : null,
+    id:        document.getElementById('alta-id').value.trim(),
+    nombre:    document.getElementById('alta-nombre').value.trim(),
+    stock:     Number(document.getElementById('alta-stock').value)     || 0,
+    min:       Number(document.getElementById('alta-min').value)       || 0,
+    unidad:    document.getElementById('alta-unit').value              || 'piezas',
+    proveedor: document.getElementById('alta-prov')?.value.trim()     || '',
+    lote:      document.getElementById('alta-lote')?.value.trim()     || '',
+    caducidad: document.getElementById('alta-cad')?.value             || null,
+    ubicacion: document.getElementById('alta-ubicacion')?.value.trim()|| '',
+    precio_unitario: Number(document.getElementById('alta-precio')?.value) || 0,
+    almacen_id: typeof almacenActivo !== 'undefined' ? almacenActivo?.id : null,
   };
   if (!prod.nombre) { toast('El nombre del producto es obligatorio'); return; }
   // Auto-generar código si está vacío
-  if (!prod.id) prod.id = 'QM-' + Date.now().toString().slice(-6);
+  if (!prod.id) {
+    try {
+      const prods = await API.getProductos();
+      prod.id = 'QM-' + String(prods.length + 1).padStart(4, '0');
+    } catch { prod.id = 'QM-' + Date.now().toString().slice(-6); }
+  }
 
   const btn = document.getElementById('btn-guardar-alta');
   btn.disabled = true; btn.textContent = 'Guardando...';
