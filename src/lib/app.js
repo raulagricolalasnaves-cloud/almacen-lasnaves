@@ -665,23 +665,36 @@ async function eliminarUsuarioSistema(userId, nombre) {
 
 // ── ENTRADAS/SALIDAS UNIFICADO ────────────────────────
 function switchMovStock(tipo) {
-  const entTab = document.getElementById('tab-entradas');
-  const salTab = document.getElementById('tab-salidas');
+  // Las secciones de entrada/salida están dentro de tab-movstock
+  const entSec = document.getElementById('movstock-entrada');
+  const salSec = document.getElementById('movstock-salida');
   const btnEnt = document.getElementById('ms-tab-ent');
   const btnSal = document.getElementById('ms-tab-sal');
 
   if (tipo === 'entrada') {
-    entTab?.classList.remove('hidden');
-    salTab?.classList.add('hidden');
+    entSec?.classList.remove('hidden');
+    salSec?.classList.add('hidden');
     btnEnt?.classList.add('active');
     btnSal?.classList.remove('active');
-    iniciarEntradas();
+    // Limpiar formulario de entrada de forma segura
+    carritoEntrada = []; fotoEntrada = null;
+    document.getElementById('ent-resultados')?.replaceChildren?.();
+    const buscarEl = document.getElementById('ent-buscar');
+    if (buscarEl) buscarEl.value = '';
+    document.getElementById('ent-carrito-card')?.classList.add('hidden');
+    document.getElementById('ent-form-general')?.classList.add('hidden');
   } else {
-    salTab?.classList.remove('hidden');
-    entTab?.classList.add('hidden');
+    salSec?.classList.remove('hidden');
+    entSec?.classList.add('hidden');
     btnSal?.classList.add('active');
     btnEnt?.classList.remove('active');
-    iniciarSalidas();
+    // Limpiar formulario de salida de forma segura
+    carritoSalida = []; fotoSalida = null;
+    document.getElementById('sal-resultados')?.replaceChildren?.();
+    const buscarSal = document.getElementById('sal-buscar');
+    if (buscarSal) buscarSal.value = '';
+    document.getElementById('sal-carrito-card')?.classList.add('hidden');
+    document.getElementById('sal-form-general')?.classList.add('hidden');
   }
 }
 

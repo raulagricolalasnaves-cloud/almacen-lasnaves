@@ -118,13 +118,18 @@ const API = {
 
   // ── MOVIMIENTOS ───────────────────────────────────
   async getMovimientos(limit = 50, almacenId) {
-    const { data, error } = await db
+    // Try ordered by created_at first, fallback to no order
+    let { data, error } = await db
       .from('movimientos')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) throw error;
-    return data;
+    if (error) {
+      const res = await db.from('movimientos').select('*').limit(limit);
+      if (res.error) throw res.error;
+      data = (res.data || []).reverse();
+    }
+    return data || [];
   },
   async addMovimiento(mov) {
     if (typeof Offline !== 'undefined' && !Offline.isOnline()) { Offline.encolar(mov); return; }
