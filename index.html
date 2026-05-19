@@ -148,214 +148,97 @@
     <!-- ENTRADAS / SALIDAS UNIFICADO -->
     <section id="tab-movstock" class="tab hidden">
       <div class="page-header"><div class="page-title">Entradas y Salidas</div></div>
-      <!-- Selector de tipo -->
       <div class="movstock-tabs">
         <button class="movstock-tab active" id="ms-tab-ent" onclick="switchMovStock('entrada')">↓ Registrar Entrada</button>
         <button class="movstock-tab" id="ms-tab-sal" onclick="switchMovStock('salida')">↑ Registrar Salida</button>
       </div>
 
-    <section id="tab-entradas" class="tab hidden">
+      <!-- ENTRADAS -->
       <div id="movstock-entrada">
-      <div class="page-header"><div class="page-title">Registro de Entradas</div></div>
-      <div class="card">
-        <div class="card-header">Buscar y agregar productos</div>
-        <div class="scanner-inline">
-          <div class="scanner-inline-title">📷 Escanear código</div>
-          <div id="reader-ent" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-sm btn-primary" onclick="startScannerEnt()">▶ Escanear</button>
-            <button class="btn btn-sm" onclick="stopScannerEnt()">■ Detener</button>
+        <div class="card">
+          <div class="card-header">Buscar y agregar productos</div>
+          <div class="scanner-inline">
+            <div class="scanner-inline-title">📷 Escanear código</div>
+            <div id="reader-ent" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-sm btn-primary" onclick="startScannerEnt()">▶ Escanear</button>
+              <button class="btn btn-sm" onclick="stopScannerEnt()">■ Detener</button>
+            </div>
           </div>
+          <input class="input" type="text" id="ent-buscar" placeholder="Buscar por nombre o código..." oninput="buscarProductoEntrada(this.value)" style="margin-top:8px">
+          <div id="ent-resultados" style="margin-top:6px"></div>
         </div>
-        <input class="input" type="text" id="ent-buscar" placeholder="Buscar por nombre o código..." oninput="buscarProductoEntrada(this.value)" style="margin-top:8px">
-        <div id="ent-resultados" style="margin-top:6px"></div>
-      </div>
-      <div id="ent-carrito-card" class="card hidden">
-        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <span>↓ Productos a ingresar</span>
-          <span id="ent-carrito-count" style="font-size:12px;color:var(--green);font-weight:600"></span>
-        </div>
-        <div id="ent-carrito-lista"></div>
-        <button class="btn btn-sm" style="margin-top:8px;color:var(--navy)" onclick="document.getElementById('ent-buscar').focus()">+ Agregar otro producto</button>
-      </div>
-      <div id="ent-form-general" class="card hidden">
-        <div class="card-header">Datos del recibo</div>
-        <div class="form-row">
-          <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ent-prov" placeholder="Nombre del proveedor"></div>
-          <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="ent-nota" placeholder="Observaciones"></div>
-        </div>
-        <div class="form-group">
-          <span class="foto-label">📄 Foto del recibo * <span style="font-size:11px;color:var(--text3)">(una foto para todos los productos)</span></span>
-          <div class="foto-zona" onclick="document.getElementById('ent-foto-input').click()">
-            <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
-            <input type="file" id="ent-foto-input" accept="image/*" capture="environment" onchange="onFotoEntrada(this)">
+        <div id="ent-carrito-card" class="card hidden">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span>↓ Productos a ingresar</span>
+            <span id="ent-carrito-count" style="font-size:12px;color:var(--green);font-weight:600"></span>
           </div>
-          <span class="foto-status sin-foto" id="ent-foto-status">Sin foto</span>
-          <img id="ent-foto-preview" class="foto-preview hidden" src="" alt="Preview">
+          <div id="ent-carrito-lista"></div>
+          <button class="btn btn-sm" style="margin-top:8px;color:var(--navy)" onclick="document.getElementById('ent-buscar').focus()">+ Agregar otro producto</button>
         </div>
-        <button class="btn btn-primary btn-full" onclick="solicitarPinEntrada()">🔐 Confirmar entrada de todos los productos</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarEntrada()">Cancelar todo</button>
-      </div>
-    </section>
-
-    <!-- SALIDAS -->
-    <section id="tab-salidas" class="tab hidden">
-      <div class="page-header"><div class="page-title">Registro de Salidas</div></div>
-      <!-- Buscador -->
-      </div><!-- end movstock-entrada -->
-      <div id="movstock-salida" class="hidden">
-      <div class="card">
-        <div class="card-header">Buscar y agregar productos</div>
-        <div class="scanner-inline">
-          <div class="scanner-inline-title">📷 Escanear código</div>
-          <div id="reader-sal" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-sm btn-primary" onclick="startScannerSal()">▶ Escanear</button>
-            <button class="btn btn-sm" onclick="stopScannerSal()">■ Detener</button>
-          </div>
-        </div>
-        <input class="input" type="text" id="sal-buscar" placeholder="Buscar por nombre o código..." oninput="buscarProductoSalida(this.value)" style="margin-top:8px">
-        <div id="sal-resultados" style="margin-top:6px"></div>
-      </div>
-
-      <!-- Carrito salidas -->
-      <div id="sal-carrito-card" class="card hidden">
-        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <span>↑ Productos a despachar</span>
-          <span id="sal-carrito-count" style="font-size:12px;color:var(--red);font-weight:600"></span>
-        </div>
-        <div id="sal-carrito-lista"></div>
-        <button class="btn btn-sm" style="margin-top:8px;color:var(--navy)" onclick="document.getElementById('sal-buscar').focus();document.getElementById('sal-buscar').scrollIntoView({behavior:'smooth'})">+ Agregar otro producto</button>
-      </div>
-
-      <!-- Datos generales del vale -->
-      <div id="sal-form-general" class="card hidden">
-        <div class="card-header">Datos del despacho</div>
-        <div class="form-row">
-          <div class="form-group"><label>Área o destino</label><input class="input" type="text" id="sal-dest" placeholder="Ej: Producción A"></div>
-          <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="sal-nota" placeholder="Observaciones"></div>
-        </div>
-        <div class="form-group">
-          <span class="foto-label">📋 Foto del vale de entrega * <span style="font-size:11px;color:var(--text3)">(una sola foto para todos los productos)</span></span>
-          <div class="foto-zona" onclick="document.getElementById('sal-foto-input').click()">
-            <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
-            <input type="file" id="sal-foto-input" accept="image/*" capture="environment" onchange="onFotoSalida(this)">
-          </div>
-          <span class="foto-status sin-foto" id="sal-foto-status">Sin foto</span>
-          <img id="sal-foto-preview" class="foto-preview hidden" src="" alt="Preview">
-        </div>
-        <button class="btn btn-primary btn-full" onclick="solicitarPinSalida()">🔐 Confirmar salida de todos los productos</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="cancelarSalida()">Cancelar todo</button>
-      </div>
-    </section>
-
-      </div><!-- end movstock-salida -->
-    </section><!-- end tab-movstock -->
-
-    <!-- SCANNER -->
-    <section id="tab-scanner" class="tab hidden">
-      <div class="page-header"><div class="page-title">Escanear Código</div></div>
-      <div class="card">
-        <div id="reader" style="width:100%;border-radius:8px;overflow:hidden;background:#111;min-height:180px"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-primary" style="flex:1" onclick="startScanner()">▶ Iniciar cámara</button>
-          <button class="btn" style="flex:1" onclick="stopScanner()">■ Detener</button>
-        </div>
-        <p class="hint" style="margin:10px 0 6px">O escribe el código manualmente:</p>
-        <div style="display:flex;gap:8px"><input class="input" type="text" id="manual-code" placeholder="Ej: QM-001"><button class="btn btn-primary" onclick="buscarManual()">Buscar</button></div>
-      </div>
-      <div id="scan-result-card" class="card hidden">
-        <div class="scan-found"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Producto identificado</div>
-        <div id="scan-info-rows"></div>
-        <div id="scan-sds-banner"></div>
-        <div class="action-selector">
-          <div class="action-label">¿Qué deseas hacer?</div>
-          <div class="action-btns-3">
-            <button class="action-btn" id="btn-agregar" onclick="selectAction('entrada')"><span class="action-icon green">↓</span><span class="action-text">Agregar stock</span><span class="action-sub">Entrada</span></button>
-            <button class="action-btn" id="btn-descontar" onclick="selectAction('salida')"><span class="action-icon red">↑</span><span class="action-text">Descontar</span><span class="action-sub">Salida</span></button>
-            <button class="action-btn" onclick="selectAction('ver')"><span class="action-icon blue">👁</span><span class="action-text">Ver detalle</span><span class="action-sub">Sin movimiento</span></button>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn" style="flex:1" onclick="abrirQRDesdeScanner()">🏷 Etiqueta QR</button>
-          <button class="btn" style="flex:1" onclick="abrirSDSDesdeScanner()">🛡 Ver SDS</button>
-          <button class="btn" style="flex:1" onclick="limpiarScanner()">← Otro</button>
-        </div>
-      </div>
-      <div id="scan-form-card" class="card hidden">
-        <div class="card-header" id="scan-form-title">Registrar movimiento</div>
-        <div class="form-row">
-          <div class="form-group"><label>Cantidad</label><input class="input" type="number" id="f-qty" min="1" placeholder="0"></div>
-          <div class="form-group"><label>Unidad</label><select class="input" id="f-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div>
-        </div>
-        <div class="form-group"><label>Área / Proveedor / Destino</label><input class="input" type="text" id="f-dest" placeholder="Ej: Producción A"></div>
-        <div id="f-entrada-extra">
+        <div id="ent-form-general" class="card hidden">
+          <div class="card-header">Datos del recibo</div>
           <div class="form-row">
-            <div class="form-group"><label>N° de lote</label><input class="input" type="text" id="f-lote" placeholder="L-2025-04"></div>
-            <div class="form-group"><label>Caducidad</label><input class="input" type="date" id="f-cad"></div>
-          </div>
-        </div>
-        <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="f-nota"></div>
-        <div class="form-group">
-          <span class="foto-label" id="foto-label">📄 Foto del recibo *</span>
-          <div class="foto-zona" onclick="document.getElementById('foto-input').click()">
-            <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar</span></label>
-            <input type="file" id="foto-input" accept="image/*" capture="environment" onchange="onFotoSeleccionada(this)">
-          </div>
-          <span class="foto-status sin-foto" id="foto-status">Sin foto</span>
-          <img id="foto-preview" class="foto-preview hidden" src="" alt="Preview">
-        </div>
-        <button class="btn btn-primary btn-full" id="btn-registrar" onclick="solicitarPin()">🔐 Confirmar con contraseña</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('scan-form-card').classList.add('hidden')">Cancelar</button>
-      </div>
-      <div id="scan-alta-card" class="card hidden">
-        <div class="alta-header"><div class="alta-icon">📦</div><div><div class="alta-title">Producto nuevo</div><div class="alta-sub">Solo el nombre es obligatorio. El código se genera automáticamente.</div></div></div>
-        <div class="form-row"><div class="form-group"><label>Código (automático si vacío)</label><input class="input" type="text" id="alta-id" style="background:var(--bg);font-family:'DM Mono',monospace"></div><div class="form-group"><label>Nombre <span style="color:var(--red)">*</span></label><input class="input" type="text" id="alta-nombre" placeholder="Nombre del producto"></div></div>
-        <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="alta-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="alta-min" placeholder="0"></div></div>
-        <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="alta-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option></select></div><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="alta-prov"></div></div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Lote</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-weight:400;margin-bottom:4px"><input type="checkbox" id="alta-sin-lote" onchange="document.getElementById('alta-lote').disabled=this.checked;if(this.checked)document.getElementById('alta-lote').value=''"> Sin número de lote</label>
-            <input class="input" type="text" id="alta-lote" placeholder="Ej: L-2025-04">
+            <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ent-prov" placeholder="Nombre del proveedor"></div>
+            <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="ent-nota" placeholder="Observaciones"></div>
           </div>
           <div class="form-group">
-            <label>Caducidad</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-weight:400;margin-bottom:4px"><input type="checkbox" id="alta-sin-cad" onchange="document.getElementById('alta-cad').disabled=this.checked;if(this.checked)document.getElementById('alta-cad').value=''"> Sin fecha de caducidad</label>
-            <input class="input" type="text" id="alta-cad" placeholder="DD/MM/AAAA o AAAA-MM-DD">
+            <span class="foto-label">📄 Foto del recibo * <span style="font-size:11px;color:var(--text3)">(una foto para todos los productos)</span></span>
+            <div class="foto-zona" onclick="document.getElementById('ent-foto-input').click()">
+              <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
+              <input type="file" id="ent-foto-input" accept="image/*" capture="environment" onchange="onFotoEntrada(this)">
+            </div>
+            <span class="foto-status sin-foto" id="ent-foto-status">Sin foto</span>
+            <img id="ent-foto-preview" class="foto-preview hidden" src="" alt="Preview">
           </div>
+          <button class="btn btn-primary btn-full" onclick="solicitarPinEntrada()">🔐 Confirmar entrada de todos los productos</button>
+          <button class="btn btn-full" style="margin-top:6px" onclick="cancelarEntrada()">Cancelar todo</button>
         </div>
-        <div class="form-row"><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="alta-ubicacion" placeholder="Ej: Pasillo A-3"></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="alta-precio" placeholder="0.00"></div></div>
-        <div class="form-row"><div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="alta-ingrediente" placeholder="Ej: Glifosato, Cobre"></div><div class="form-group"><label>Descripción</label><input class="input" type="text" id="alta-descripcion" placeholder="Descripción breve"></div></div>
-        <div class="form-group"><label>🔗 Link ficha técnica (SDS)</label><input class="input" type="url" id="alta-sds-link" placeholder="https://..."></div>
-        <button class="btn btn-primary btn-full" id="btn-guardar-alta" onclick="guardarProductoDesdeScanner()">✓ Dar de alta producto</button>
-        <button class="btn btn-full" style="margin-top:6px" onclick="limpiarScanner()">Cancelar</button>
       </div>
-    </section>
 
-    <!-- INVENTARIO -->
-    <section id="tab-inventario" class="tab hidden">
-      <div class="page-header"><div class="page-title">Inventario</div><button class="btn btn-sm" onclick="cargarInventario()">↻</button></div>
-      <div class="card">
-        <input class="input" type="text" placeholder="Buscar por nombre, código o ubicación..." oninput="filtrarInv(this.value)" style="margin-bottom:10px">
-        <div id="inv-lista"><div class="loading">Cargando...</div></div>
-      </div>
-      <div id="inv-admin-panel" class="hidden">
-        <button class="btn btn-primary btn-full" onclick="mostrarFormProducto()">+ Agregar producto manualmente</button>
-        <div id="form-producto" class="card hidden" style="margin-top:12px">
-          <div class="card-header">Nuevo producto <span style="font-size:11px;color:var(--text3);font-weight:400">— Solo el nombre es obligatorio</span></div>
-          <div class="form-row"><div class="form-group"><label>Código (opcional, se genera automático)</label><input class="input" type="text" id="np-id" placeholder="Ej: QM-008 (opcional)"></div><div class="form-group"><label>Nombre del producto <span style="color:var(--red)">*</span></label><input class="input" type="text" id="np-nombre" placeholder="Nombre del producto"></div></div>
-          <div class="form-row"><div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="np-stock" placeholder="0"></div><div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="np-min" placeholder="0"></div></div>
-          <div class="form-row"><div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option></select></div><div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="np-precio" placeholder="0.00"></div></div>
-          <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov"></div><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="np-ubicacion" placeholder="Pasillo A-3"></div></div>
-          <div class="form-row"><div class="form-group"><label>Lote</label><input class="input" type="text" id="np-lote"></div><div class="form-group"><label>Caducidad</label><input class="input" type="date" id="np-cad"></div></div>
-          <div class="form-row"><div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="np-ingrediente" placeholder="Ej: Glifosato, Cobre..."></div><div class="form-group"><label>Descripción</label><input class="input" type="text" id="np-descripcion" placeholder="Descripción breve del producto"></div></div>
-          <div class="form-row"><div class="form-group"><label>Peligrosidad GHS</label><select class="input" id="np-peligro"><option value="">Sin clasificar</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option><option value="ninguno">Ninguno</option></select></div><div class="form-group"><label>Clases GHS (coma)</label><input class="input" type="text" id="np-ghs" placeholder="inflamable,corrosivo"></div></div>
-          <div class="form-group"><label>🔗 Link de ficha técnica (SDS)</label><input class="input" type="url" id="np-sds-link" placeholder="https://... (URL de la ficha técnica)"></div>
-          <button class="btn btn-primary btn-full" onclick="guardarProducto()">Guardar producto</button>
-          <button class="btn btn-full" style="margin-top:6px" onclick="document.getElementById('form-producto').classList.add('hidden')">Cancelar</button>
+      <!-- SALIDAS -->
+      <div id="movstock-salida" class="hidden">
+        <div class="card">
+          <div class="card-header">Buscar y agregar productos</div>
+          <div class="scanner-inline">
+            <div class="scanner-inline-title">📷 Escanear código</div>
+            <div id="reader-sal" style="width:100%;border-radius:6px;overflow:hidden;background:#111;min-height:140px;display:none"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn btn-sm btn-primary" onclick="startScannerSal()">▶ Escanear</button>
+              <button class="btn btn-sm" onclick="stopScannerSal()">■ Detener</button>
+            </div>
+          </div>
+          <input class="input" type="text" id="sal-buscar" placeholder="Buscar por nombre o código..." oninput="buscarProductoSalida(this.value)" style="margin-top:8px">
+          <div id="sal-resultados" style="margin-top:6px"></div>
+        </div>
+        <div id="sal-carrito-card" class="card hidden">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span>↑ Productos a despachar</span>
+            <span id="sal-carrito-count" style="font-size:12px;color:var(--red);font-weight:600"></span>
+          </div>
+          <div id="sal-carrito-lista"></div>
+          <button class="btn btn-sm" style="margin-top:8px;color:var(--navy)" onclick="document.getElementById('sal-buscar').focus()">+ Agregar otro producto</button>
+        </div>
+        <div id="sal-form-general" class="card hidden">
+          <div class="card-header">Datos del despacho</div>
+          <div class="form-row">
+            <div class="form-group"><label>Área o destino</label><input class="input" type="text" id="sal-dest" placeholder="Ej: Producción A"></div>
+            <div class="form-group"><label>Nota (opcional)</label><input class="input" type="text" id="sal-nota" placeholder="Observaciones"></div>
+          </div>
+          <div class="form-group">
+            <span class="foto-label">📋 Foto del vale * <span style="font-size:11px;color:var(--text3)">(una foto para todos los productos)</span></span>
+            <div class="foto-zona" onclick="document.getElementById('sal-foto-input').click()">
+              <label class="foto-zona-label"><span class="foto-zona-icon">📷</span><span class="foto-zona-text">Tomar foto o seleccionar imagen</span></label>
+              <input type="file" id="sal-foto-input" accept="image/*" capture="environment" onchange="onFotoSalida(this)">
+            </div>
+            <span class="foto-status sin-foto" id="sal-foto-status">Sin foto</span>
+            <img id="sal-foto-preview" class="foto-preview hidden" src="" alt="Preview">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="solicitarPinSalida()">🔐 Confirmar salida de todos los productos</button>
+          <button class="btn btn-full" style="margin-top:6px" onclick="cancelarSalida()">Cancelar todo</button>
         </div>
       </div>
+
     </section>
 
     <!-- CONTEO FÍSICO v17 -->
