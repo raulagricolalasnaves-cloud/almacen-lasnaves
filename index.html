@@ -66,7 +66,6 @@
     <button class="nav-btn" onclick="goTo('conteo',this)" data-modulo="conteo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Conteo</button>
     <button class="nav-btn" onclick="goTo('movimientos',this)" data-modulo="movimientos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Movimientos</button>
     <button class="nav-btn" onclick="goTo('reportes',this)" data-modulo="reportes"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Reportes</button>
-    <button class="nav-btn" onclick="goTo('pedidos-clientes',this)" data-modulo="pedidos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>Pedidos clientes</button>
     <button class="nav-btn" onclick="goTo('pedidos',this)" data-modulo="pedidos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Pedidos</button>
     <button class="nav-btn" onclick="goTo('proveedores',this)" data-modulo="proveedores"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>Proveedores</button>
     <button class="nav-btn" onclick="goTo('almacenes',this)" data-modulo="almacenes"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Almacenes</button>
@@ -458,99 +457,116 @@
       <div class="card"><div class="card-header">Vista previa</div><div id="rep-preview"><div class="empty">Selecciona período y tipo</div></div></div>
     </section>
 
-    <!-- PEDIDOS DE CLIENTES -->
-    <section id="tab-pedidos-clientes" class="tab hidden">
-      <div class="page-header"><div class="page-title">Pedidos de Clientes</div><button class="btn btn-sm" onclick="cargarPedidosClientes()">↻</button></div>
+    <!-- PEDIDOS UNIFICADO -->
+    <section id="tab-pedidos" class="tab hidden">
+      <div class="page-header"><div class="page-title">Pedidos</div><button class="btn btn-sm" onclick="cargarPedidos()">↻</button></div>
 
-      <div id="pc-lista-view">
-        <!-- Filtros -->
-        <div class="card" style="margin-bottom:10px">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select class="input" style="flex:1;min-width:120px" id="pc-filtro-estado" onchange="filtrarPedidosClientes()">
-              <option value="">Todos los estados</option>
-              <option>Recibido</option><option>Confirmado</option><option>En proceso</option>
-              <option>Listo</option><option>En camino</option><option>Entregado</option><option>Cancelado</option>
-            </select>
-            <select class="input" style="flex:1;min-width:120px" id="pc-filtro-prioridad" onchange="filtrarPedidosClientes()">
-              <option value="">Todas las prioridades</option>
-              <option value="alta">Alta</option><option value="normal">Normal</option><option value="baja">Baja</option>
-            </select>
-          </div>
-        </div>
-        <div id="pc-lista"><div class="loading">Cargando...</div></div>
-        <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormPedidoCliente()">+ Nuevo pedido de cliente</button>
+      <!-- Sub-tabs -->
+      <div class="movstock-tabs" style="margin-bottom:14px">
+        <button class="movstock-tab active" id="ped-tab-rec" onclick="switchPedidos('recibidos')">📋 Pedidos recibidos</button>
+        <button class="movstock-tab" id="ped-tab-prov" onclick="switchPedidos('proveedores')">🚚 Pedidos a proveedores</button>
+      </div>
 
-        <!-- Formulario nuevo pedido -->
-        <div id="form-pedido-cliente" class="card hidden" style="margin-top:12px">
-          <div class="card-header">Nuevo pedido de cliente</div>
-          <div class="form-row">
-            <div class="form-group"><label>Cliente *</label><input class="input" type="text" id="pc-cliente" placeholder="Nombre del cliente o empresa"></div>
-            <div class="form-group"><label>Teléfono</label><input class="input" type="tel" id="pc-tel" placeholder="Tel. de contacto"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label>Correo</label><input class="input" type="email" id="pc-correo" placeholder="correo@cliente.com"></div>
-            <div class="form-group">
-              <label>Prioridad</label>
-              <select class="input" id="pc-prioridad">
-                <option value="normal">Normal</option>
-                <option value="alta">Alta ⚡</option>
-                <option value="baja">Baja</option>
+      <!-- PEDIDOS RECIBIDOS (de áreas/clientes) -->
+      <div id="ped-recibidos-view">
+        <div id="pc-lista-view">
+          <div class="card" style="margin-bottom:10px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select class="input" style="flex:1;min-width:120px" id="pc-filtro-estado" onchange="filtrarPedidosClientes()">
+                <option value="">Todos los estados</option>
+                <option>Recibido</option><option>Confirmado</option><option>En proceso</option>
+                <option>Listo</option><option>En camino</option><option>Entregado</option><option>Cancelado</option>
+              </select>
+              <select class="input" style="flex:1;min-width:120px" id="pc-filtro-prioridad" onchange="filtrarPedidosClientes()">
+                <option value="">Todas las prioridades</option>
+                <option value="alta">Alta</option><option value="normal">Normal</option><option value="baja">Baja</option>
               </select>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>Fecha del pedido</label><input class="input" type="date" id="pc-fecha-pedido"></div>
-            <div class="form-group"><label>Fecha estimada de entrega</label><input class="input" type="date" id="pc-fecha-est"></div>
+          <div id="pc-lista"><div class="loading">Cargando...</div></div>
+          <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormPedidoCliente()">+ Nuevo pedido recibido</button>
+          <div id="form-pedido-cliente" class="card hidden" style="margin-top:12px">
+            <div class="card-header">Nuevo pedido recibido</div>
+            <div class="form-row">
+              <div class="form-group"><label>Área / Cliente *</label><input class="input" type="text" id="pc-cliente" placeholder="Ej: Producción A, Juan López"></div>
+              <div class="form-group"><label>Teléfono</label><input class="input" type="tel" id="pc-tel"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Correo</label><input class="input" type="email" id="pc-correo"></div>
+              <div class="form-group"><label>Prioridad</label>
+                <select class="input" id="pc-prioridad">
+                  <option value="normal">Normal</option><option value="alta">Alta ⚡</option><option value="baja">Baja</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Fecha del pedido</label><input class="input" type="date" id="pc-fecha-pedido"></div>
+              <div class="form-group"><label>Fecha estimada de entrega</label><input class="input" type="date" id="pc-fecha-est"></div>
+            </div>
+            <div style="margin:10px 0 6px;font-size:12px;font-weight:600;color:var(--text2)">Productos solicitados</div>
+            <div id="pc-prods-lista" style="margin-bottom:8px"></div>
+            <div class="form-row">
+              <div class="form-group"><label>Producto</label><input class="input" type="text" id="pc-prod-nombre" placeholder="Nombre del producto"></div>
+              <div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pc-prod-qty" placeholder="Ej: 50 L"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="pc-prod-precio" placeholder="0.00"></div>
+              <div class="form-group"><label>Nota del producto</label><input class="input" type="text" id="pc-prod-nota"></div>
+            </div>
+            <button class="btn btn-green btn-full" onclick="agregarProdPedidoCliente()">+ Agregar producto</button>
+            <div style="font-size:13px;color:var(--text2);margin:8px 0">Total estimado: <strong id="pc-total-calc">—</strong></div>
+            <div class="form-group"><label>Nota general</label><input class="input" type="text" id="pc-nota" placeholder="Instrucciones especiales"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary" style="flex:1" onclick="guardarPedidoCliente()">Registrar pedido</button>
+              <button class="btn" style="flex:1" onclick="document.getElementById('form-pedido-cliente').classList.add('hidden');pedidosClienteProductos=[]">Cancelar</button>
+            </div>
           </div>
+        </div>
+        <div id="pc-detalle-view" class="hidden"><div id="pc-detalle-content"></div></div>
+      </div>
 
-          <div style="margin:10px 0 6px;font-size:12px;font-weight:600;color:var(--text2)">Productos solicitados</div>
-          <div id="pc-prods-lista" style="margin-bottom:8px"></div>
+      <!-- PEDIDOS A PROVEEDORES -->
+      <div id="ped-proveedores-view" class="hidden">
+        <div class="card"><div id="ped-lista"><div class="loading">Cargando...</div></div>
+          <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormPedido()">+ Nuevo pedido a proveedor</button>
+        </div>
+        <div id="form-pedido" class="card hidden">
+          <div class="card-header">Nuevo pedido a proveedor</div>
           <div class="form-row">
-            <div class="form-group"><label>Producto</label><input class="input" type="text" id="pc-prod-nombre" placeholder="Nombre del producto"></div>
-            <div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pc-prod-qty" placeholder="Ej: 50 L"></div>
+            <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="pp-prov"></div>
+            <div class="form-group"><label>Fecha estimada</label><input class="input" type="date" id="pp-fecha"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="pc-prod-precio" placeholder="0.00"></div>
-            <div class="form-group"><label>Nota del producto</label><input class="input" type="text" id="pc-prod-nota" placeholder="Especificaciones"></div>
+          <div class="form-group"><label>Nota general</label><input class="input" type="text" id="pp-nota"></div>
+          <div style="margin:12px 0 8px;font-size:12px;font-weight:600;color:var(--text2)">Productos a pedir</div>
+          <div id="pp-productos-lista"></div>
+          <div class="form-row" style="margin-bottom:6px">
+            <div class="form-group"><label>Producto</label><input class="input" type="text" id="pp-prod-nombre" placeholder="Nombre del producto"></div>
+            <div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pp-prod-qty" placeholder="Ej: 100 L"></div>
           </div>
-          <button class="btn btn-green btn-full" onclick="agregarProdPedidoCliente()">+ Agregar producto</button>
-          <div style="font-size:13px;color:var(--text2);margin:8px 0">Total estimado: <strong id="pc-total-calc">—</strong></div>
-
-          <div class="form-group"><label>Nota general</label><input class="input" type="text" id="pc-nota" placeholder="Instrucciones especiales de entrega, etc."></div>
-          <div style="display:flex;gap:8px;margin-top:4px">
-            <button class="btn btn-primary" style="flex:1" onclick="guardarPedidoCliente()">Registrar pedido</button>
-            <button class="btn" style="flex:1" onclick="document.getElementById('form-pedido-cliente').classList.add('hidden');pedidosClienteProductos=[]">Cancelar</button>
+          <button class="btn btn-green btn-full" onclick="agregarProductoPedido()">+ Agregar producto</button>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-primary" style="flex:1" onclick="guardarPedido()">Crear pedido</button>
+            <button class="btn" style="flex:1" onclick="document.getElementById('form-pedido').classList.add('hidden');pedidoProductos=[]">Cancelar</button>
           </div>
         </div>
       </div>
 
-      <!-- Vista detalle -->
-      <div id="pc-detalle-view" class="hidden">
-        <div id="pc-detalle-content"></div>
+      <!-- Modal evaluar proveedor -->
+      <div id="modal-evaluar" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width:420px">
+          <div class="modal-title">⭐ Evaluar proveedor</div>
+          <div class="modal-sub" id="eval-prov-nombre" style="font-weight:600;color:var(--navy);margin-bottom:14px"></div>
+          <input type="hidden" id="eval-prov-id">
+          <div class="eval-score"><span class="eval-score-label">Puntualidad</span><div class="prov-stars" id="stars-puntualidad"></div></div>
+          <div class="eval-score"><span class="eval-score-label">Calidad</span><div class="prov-stars" id="stars-calidad"></div></div>
+          <div class="eval-score"><span class="eval-score-label">Precio</span><div class="prov-stars" id="stars-precio"></div></div>
+          <div class="form-group" style="margin-top:10px"><label>Pedido relacionado</label><input class="input" type="text" id="eval-pedido" placeholder="PED-001"></div>
+          <div class="form-group"><label>Comentario</label><textarea class="input" id="eval-comentario" rows="3" style="resize:vertical"></textarea></div>
+          <div style="display:flex;gap:8px"><button class="btn btn-full" onclick="cerrarEvaluar()">Cancelar</button><button class="btn btn-primary btn-full" onclick="guardarEvaluacion()">Guardar</button></div>
+        </div>
       </div>
     </section>
 
-    <!-- PEDIDOS A PROVEEDORES -->
-    <section id="tab-pedidos" class="tab hidden">
-      <div class="page-header"><div class="page-title">Pedidos</div><button class="btn btn-sm" onclick="cargarPedidos()">↻</button></div>
-      <div class="card"><div id="ped-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormPedido()">+ Nuevo pedido</button></div>
-      <div id="form-pedido" class="card hidden">
-        <div class="card-header">Nuevo pedido</div>
-        <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="pp-prov"></div><div class="form-group"><label>Fecha estimada</label><input class="input" type="date" id="pp-fecha"></div></div>
-        <div class="form-group"><label>Nota general</label><input class="input" type="text" id="pp-nota"></div>
-        <div style="margin:12px 0 8px;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px">Productos a pedir</div>
-        <div id="pp-productos-lista"></div>
-        <div class="form-row" style="margin-bottom:6px">
-          <div class="form-group"><label>Producto</label><input class="input" type="text" id="pp-prod-nombre" placeholder="Nombre del producto"></div>
-          <div class="form-group"><label>Cantidad</label><input class="input" type="text" id="pp-prod-qty" placeholder="Ej: 100 L"></div>
-        </div>
-        <button class="btn btn-green btn-full" onclick="agregarProductoPedido()">+ Agregar producto</button>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn btn-primary" style="flex:1" onclick="guardarPedido()">Crear pedido</button>
-          <button class="btn" style="flex:1" onclick="document.getElementById('form-pedido').classList.add('hidden');pedidoProductos=[]">Cancelar</button>
-        </div>
-      </div>
-    </section>
 
     <!-- PROVEEDORES -->
     <section id="tab-proveedores" class="tab hidden">

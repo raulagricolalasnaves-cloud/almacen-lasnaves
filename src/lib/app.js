@@ -197,7 +197,7 @@ async function cargarDashboard() {
         <div class="kpi-main-card" style="border-left:3px solid ${bajo>0?'var(--red)':'var(--green)'};cursor:pointer" onclick="toggleDashPanel('panel-bajo')"><div class="kpi-icon" style="background:${bajo>0?'var(--red-bg)':'var(--green-bg)'};color:${bajo>0?'var(--red)':'var(--green)'}">📉</div><div><div class="kpi-label">Stock bajo</div><div class="kpi-val" style="color:${bajo>0?'var(--red)':'var(--green)'};font-size:20px">${bajo}</div></div></div>
         <div class="kpi-main-card" style="border-left:3px solid ${cad>0?'var(--amber)':'var(--green)'};cursor:pointer" onclick="toggleDashPanel('panel-cad')"><div class="kpi-icon" style="background:${cad>0?'var(--amber-bg)':'var(--green-bg)'};color:${cad>0?'var(--amber)':'var(--green)'}">⏰</div><div><div class="kpi-label">Por caducar</div><div class="kpi-val" style="color:${cad>0?'var(--amber)':'var(--green)'};font-size:20px">${cad}</div></div></div>
         <div class="kpi-main-card" style="border-left:3px solid ${prodsCad0.length>0?'var(--red)':'var(--green)'};cursor:pointer" onclick="toggleDashPanel('panel-cad0')"><div class="kpi-icon" style="background:${prodsCad0.length>0?'var(--red-bg)':'var(--green-bg)'};color:${prodsCad0.length>0?'var(--red)':'var(--green)'}">🗑</div><div><div class="kpi-label">Caducados</div><div class="kpi-val" style="color:${prodsCad0.length>0?'var(--red)':'var(--green)'};font-size:20px">${prodsCad0.length}</div></div></div>
-        <div class="kpi-main-card" style="border-left:3px solid var(--blue);cursor:pointer" onclick="goTo('pedidos-clientes',document.querySelector('[onclick*=pedidos-clientes]'))"><div class="kpi-icon" style="background:var(--blue-bg);color:var(--blue)">📋</div><div><div class="kpi-label">Pedidos activos</div><div class="kpi-val" style="color:var(--blue);font-size:20px">${act}</div></div></div>
+        <div class="kpi-main-card" style="border-left:3px solid var(--blue);cursor:pointer" onclick="goTo('pedidos',document.querySelector('[onclick*=pedidos]'))"><div class="kpi-icon" style="background:var(--blue-bg);color:var(--blue)">📋</div><div><div class="kpi-label">Pedidos activos</div><div class="kpi-val" style="color:var(--blue);font-size:20px">${act}</div></div></div>
       </div>
       <div id="panel-bajo" class="${bajo>0?'dash-panel':'dash-panel hidden'}"><div class="dash-panel-title">📉 Stock bajo (${bajo})</div>${prodsBajo.map(p=>`<div class="dash-panel-item"><div><div class="dash-panel-nombre">${p.nombre}</div><div class="dash-panel-sub">${p.id}${p.ubicacion?' · 📍 '+p.ubicacion:''}</div></div><div style="text-align:right"><div style="font-weight:700;color:var(--red)">${p.stock} ${p.unidad||''}</div><div style="font-size:11px;color:var(--text3)">mín: ${p.min}</div></div></div>`).join('')}</div>
       <div id="panel-cad" class="${cad>0?'dash-panel':'dash-panel hidden'}"><div class="dash-panel-title">⏰ Por caducar (${cad})</div>${prodsCad.sort((a,b)=>new Date(a.caducidad)-new Date(b.caducidad)).map(p=>{const d=Math.floor((new Date(p.caducidad)-hoy)/86400000);return`<div class="dash-panel-item"><div><div class="dash-panel-nombre">${p.nombre}</div><div class="dash-panel-sub">${p.caducidad} · ${p.stock} ${p.unidad||''}</div></div><div style="font-weight:700;color:${d<30?'var(--red)':'var(--amber)'}">${d===0?'HOY':d+'d'}</div></div>`;}).join('')}</div>
@@ -880,3 +880,25 @@ function filtrarInv(q) {
 }
 
 // ── CSS CLASSES for new panels ────────────────────────
+
+// ── PEDIDOS UNIFICADO ─────────────────────────────────
+async function cargarPedidosUnificado() {
+  // Load both views
+  await Promise.all([cargarPedidosClientes(), cargarPedidos()]);
+}
+
+function switchPedidos(vista) {
+  const recView  = document.getElementById('ped-recibidos-view');
+  const provView = document.getElementById('ped-proveedores-view');
+  const tabRec   = document.getElementById('ped-tab-rec');
+  const tabProv  = document.getElementById('ped-tab-prov');
+  if (vista === 'recibidos') {
+    recView?.classList.remove('hidden');  provView?.classList.add('hidden');
+    tabRec?.classList.add('active');      tabProv?.classList.remove('active');
+    cargarPedidosClientes();
+  } else {
+    provView?.classList.remove('hidden'); recView?.classList.add('hidden');
+    tabProv?.classList.add('active');     tabRec?.classList.remove('active');
+    cargarPedidos();
+  }
+}
