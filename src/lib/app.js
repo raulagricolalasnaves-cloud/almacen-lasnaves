@@ -211,10 +211,13 @@ function toggleDashPanel(id) {
 
 // ── ENTRADAS ──────────────────────────────────────────
 function iniciarEntradas() {
-  productoEntrada = null; fotoEntrada = null;
-  document.getElementById('ent-buscar').value = '';
-  document.getElementById('ent-resultados').innerHTML = '';
-  document.getElementById('ent-form-card').classList.add('hidden');
+  carritoEntrada = []; fotoEntrada = null; productoEntrada = null;
+  document.getElementById('ent-buscar')?.value != null && (document.getElementById('ent-buscar').value = '');
+  const res = document.getElementById('ent-resultados'); if(res) res.innerHTML = '';
+  document.getElementById('ent-carrito-card')?.classList.add('hidden');
+  document.getElementById('ent-form-general')?.classList.add('hidden');
+  document.getElementById('ent-form-card')?.classList.add('hidden');
+  resetFotoEntrada();
 }
 
 async function buscarProductoEntrada(q) {

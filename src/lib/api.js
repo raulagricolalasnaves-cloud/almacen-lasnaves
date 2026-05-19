@@ -118,10 +118,11 @@ const API = {
 
   // ── MOVIMIENTOS ───────────────────────────────────
   async getMovimientos(limit = 50, almacenId) {
-    let q = db.from('movimientos').select('*').order('created_at', { ascending: false }).limit(limit);
-    // Only filter by almacen if it has a valid UUID
-    if (almacenId && almacenId.length === 36) q = q.eq('almacen_id', almacenId);
-    const { data, error } = await q;
+    const { data, error } = await db
+      .from('movimientos')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
     if (error) throw error;
     return data;
   },
