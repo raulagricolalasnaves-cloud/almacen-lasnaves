@@ -88,7 +88,7 @@ const API = {
   // ── PRODUCTOS ─────────────────────────────────────
   async getProductos(almacenId) {
     let q = db.from('productos').select('*').eq('activo', true).order('nombre');
-    if (almacenId) q = q.eq('almacen_id', almacenId);
+    if (almacenId && almacenId.length === 36) q = q.eq('almacen_id', almacenId);
     const { data, error } = await q;
     if (error) throw error;
     if (typeof Offline !== 'undefined') Offline.cacheProductos(data);
@@ -119,7 +119,8 @@ const API = {
   // ── MOVIMIENTOS ───────────────────────────────────
   async getMovimientos(limit = 50, almacenId) {
     let q = db.from('movimientos').select('*').order('created_at', { ascending: false }).limit(limit);
-    if (almacenId) q = q.eq('almacen_id', almacenId);
+    // Only filter by almacen if it has a valid UUID
+    if (almacenId && almacenId.length === 36) q = q.eq('almacen_id', almacenId);
     const { data, error } = await q;
     if (error) throw error;
     return data;
