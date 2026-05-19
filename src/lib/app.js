@@ -14,6 +14,10 @@ let productoSalida   = null;
 let fotoSalida       = null;
 let pinCallback      = null;
 let pedidoProductos  = [];
+let scannerEnt       = null;
+let scannerSal       = null;
+let carritoEntrada   = [];
+let carritoSalida    = [];
 
 // ── SEGURIDAD: timeout de sesión (30 min inactividad) ──
 let sessionTimer = null;
@@ -114,10 +118,8 @@ function goTo(tab, btn) {
   document.getElementById('tab-' + tab).classList.remove('hidden');
   btn.classList.add('active');
   if (typeof stopScanner === 'function') stopScanner();
-  if (typeof stopScannerEnt === 'function') stopScannerEnt();
-  if (typeof stopScannerSal === 'function') stopScannerSal();
-  if (typeof stopScannerEnt === 'function') stopScannerEnt();
-  if (typeof stopScannerSal === 'function') stopScannerSal();
+  stopScannerEnt();
+  stopScannerSal();
   const loaders = {
     dashboard: cargarDashboardUnificado, inventario: cargarInventario,
     movimientos: cargarMovimientos, pedidos: cargarPedidos,
