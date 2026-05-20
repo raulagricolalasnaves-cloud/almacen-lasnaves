@@ -152,43 +152,69 @@ async function generarContenidoReporte(inv, mov, ale) {
   return secciones;
 }
 
-// ── RESPALDO EXCEL ────────────────────────────────────
+// ── RESPALDO EXCEL COMPLETO (13 tablas) ───────────────
+// Respalda todas las tablas del sistema. Cada tabla se consulta
+// de forma independiente: si una falla, las demás se guardan igual
+// y el error queda anotado en la hoja "Estado del respaldo".
 async function descargarRespaldoExcel() {
-  toast('Generando respaldo...');
+  toast('Generando respaldo completo...');
   try {
-    const [prods, movs, peds, provs] = await Promise.all([
-      API.getProductos(), API.getMovimientos(1000), API.getPedidos(), API.getProveedores()
-    ]);
+    if (typeof XLSX === 'undefined') { toast('Error: librería Excel no cargada'); return; }
+
+    // Lista de las 13 tablas del sistema, en orden lógico.
+    const TABLAS = [
+      'productos', 'movimientos', 'pedidos', 'pedidos_clientes',
+      'pedidos_clientes_historial', 'clientes', 'proveedores',
+      'evaluaciones_proveedores', 'almacenes', 'conteos_fisicos',
+      'perfiles', 'notificaciones_config', 'auditoria'
+    ];
 
     const wb = XLSX.utils.book_new();
-    const fecha = new Date().toLocaleDateString('es-MX').replace(/\//g,'-');
+    const ahora = new Date();
+    const fecha = ahora.toLocaleDateString('es-MX').replace(/\//g,'-');
+    const estado = [];   // resumen por tabla para la hoja final
+    let tablasOk = 0, totalFilas = 0;
 
-    // Hoja 1: Inventario
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-      prods.map(p=>({Código:p.id,Nombre:p.nombre,Stock:p.stock,Mínimo:p.min,Unidad:p.unidad||'',Proveedor:p.proveedor||'',Lote:p.lote||'',Caducidad:p.caducidad||'',Ubicación:p.ubicacion||'',PrecioUnitario:p.precio_unitario||0,Peligrosidad:p.peligrosidad||'',ClasesGHS:p.clase_ghs||''}))
-    ), 'Inventario');
+    for (const tabla of TABLAS) {
+      try {
+        // Consulta directa; se traen todas las filas de la tabla.
+        const { data, error } = await db.from(tabla).select('*');
+        if (error) throw error;
+        const filas = data || [];
+        // El nombre de hoja en Excel no puede pasar de 31 caracteres.
+        const nombreHoja = tabla.substring(0, 31);
+        // Si la tabla está vacía, se crea una hoja con un aviso para
+        // que la hoja exista igualmente en el archivo.
+        const contenido = filas.length ? filas : [{ aviso: 'Tabla sin registros' }];
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contenido), nombreHoja);
+        estado.push({ Tabla: tabla, Estado: 'OK', Registros: filas.length });
+        tablasOk++;
+        totalFilas += filas.length;
+      } catch (errTabla) {
+        // Una tabla que falla NO detiene el respaldo de las demás.
+        estado.push({ Tabla: tabla, Estado: 'ERROR', Registros: 0, Detalle: errTabla.message || String(errTabla) });
+      }
+    }
 
-    // Hoja 2: Movimientos
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-      movs.map(m=>({Fecha:new Date(m.created_at).toLocaleString('es-MX'),Tipo:m.tipo,Producto:m.nombre,Cantidad:m.cantidad,Unidad:m.unidad||'',Usuario:m.usuario_nombre||'',Destino:m.destino||'',Lote:m.lote||'',StockResultante:m.stock_resultante}))
-    ), 'Movimientos');
-
-    // Hoja 3: Pedidos
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-      peds.map(p=>({Num:p.num,Proveedor:p.proveedor,Producto:p.producto,Cantidad:p.cantidad,FechaEstimada:p.fecha_estimada||'',FechaReal:p.fecha_entrega_real||'',Estado:p.estado,CreadoPor:p.creado_por||''}))
-    ), 'Pedidos');
-
-    // Hoja 4: Proveedores
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-      provs.map(p=>({Nombre:p.nombre,RFC:p.rfc||'',Teléfono:p.telefono||'',Correo:p.correo||'',Dirección:p.direccion||'',Productos:p.productos||''}))
-    ), 'Proveedores');
+    // Hoja final con el resumen del respaldo.
+    estado.unshift({ Tabla: '— RESPALDO —', Estado: 'Generado', Registros: '', Detalle: ahora.toLocaleString('es-MX') });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(estado), 'Estado del respaldo');
 
     XLSX.writeFile(wb, `LasNaves_Respaldo_${fecha}.xlsx`);
-    toast('✓ Respaldo descargado: LasNaves_Respaldo_'+fecha+'.xlsx');
+    toast(`✓ Respaldo descargado — ${tablasOk}/${TABLAS.length} tablas, ${totalFilas} registros`);
 
-    // Registrar en auditoría
-    await API.addAuditoria({ tipo:'ajuste', descripcion:'Respaldo de datos descargado en Excel', usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
-  } catch(e) { toast('Error al generar respaldo: ' + e.message); }
+    // Registrar en auditoría (sin romper el respaldo si esto falla).
+    try {
+      await API.addAuditoria({
+        tipo:'ajuste',
+        descripcion:`Respaldo completo descargado (${tablasOk}/${TABLAS.length} tablas, ${totalFilas} registros)`,
+        usuario_id: currentUser?.id,
+        usuario_nombre: currentProfile?.nombre || currentUser?.email
+      });
+    } catch (e) { /* la auditoría es opcional, no debe afectar al respaldo */ }
+  } catch(e) {
+    toast('Error al generar respaldo: ' + (e.message || e));
+  }
 }
 
 // ── RESPALDO A GOOGLE DRIVE ───────────────────────────
