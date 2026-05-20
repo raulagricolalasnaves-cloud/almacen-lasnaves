@@ -889,3 +889,169 @@ function switchPedidos(vista) {
     cargarPedidos();
   }
 }
+
+// ── CARRITO ENTRADAS ──────────────────────────────────
+async function agregarAlCarritoEntrada(id) {
+  if (carritoEntrada.find(i => i.producto.id === id)) { toast('Este producto ya está en la lista'); return; }
+  const prod = await API.getProducto(id);
+  if (!prod) return;
+  carritoEntrada.push({ producto: prod, qty: '', unidad: prod.unidad||'L', lote: '', cad: '', sinLote: false, sinCad: false });
+  document.getElementById('ent-buscar').value = '';
+  document.getElementById('ent-resultados').innerHTML = '';
+  renderCarritoEntrada();
+}
+
+function renderCarritoEntrada() {
+  const card = document.getElementById('ent-carrito-card');
+  const formGen = document.getElementById('ent-form-general');
+  if (!carritoEntrada.length) { card?.classList.add('hidden'); formGen?.classList.add('hidden'); return; }
+  card?.classList.remove('hidden'); formGen?.classList.remove('hidden');
+  const count = document.getElementById('ent-carrito-count');
+  if (count) count.textContent = carritoEntrada.length + ' producto(s)';
+  const lista = document.getElementById('ent-carrito-lista');
+  if (!lista) return;
+  lista.innerHTML = carritoEntrada.map((item, i) => `
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>${item.producto.nombre}</strong><div style="font-size:11px;color:var(--text2)">Stock actual: ${item.producto.stock} ${item.unidad}</div></div>
+        <button class="btn btn-sm" style="color:var(--red)" onclick="carritoEntrada.splice(${i},1);renderCarritoEntrada()">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+        <div><label style="font-size:11px">Cantidad *</label><input class="input" type="number" min="0.01" step="0.01" placeholder="0" value="${item.qty}" oninput="carritoEntrada[${i}].qty=this.value" style="font-size:12px"></div>
+        <div><label style="font-size:11px">Unidad</label><select class="input" onchange="carritoEntrada[${i}].unidad=this.value" style="font-size:12px">${['L','kg','piezas','tambos','cajas','mL','g'].map(u=>`<option ${item.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+        <div><label style="font-size:11px">Lote <label style="font-weight:400"><input type="checkbox" ${item.sinLote?'checked':''} onchange="carritoEntrada[${i}].sinLote=this.checked;renderCarritoEntrada()"> Sin lote</label></label><input class="input" type="text" placeholder="L-2025-01" value="${item.lote}" ${item.sinLote?'disabled':''} oninput="carritoEntrada[${i}].lote=this.value" style="font-size:12px"></div>
+        <div><label style="font-size:11px">Caducidad <label style="font-weight:400"><input type="checkbox" ${item.sinCad?'checked':''} onchange="carritoEntrada[${i}].sinCad=this.checked;renderCarritoEntrada()"> Sin cad.</label></label><input class="input" type="text" placeholder="DD/MM/AAAA" value="${item.cad}" ${item.sinCad?'disabled':''} oninput="carritoEntrada[${i}].cad=this.value" style="font-size:12px"></div>
+      </div>
+    </div>`).join('');
+}
+
+function solicitarPinEntrada() {
+  if (!carritoEntrada.length) { toast('Agrega al menos un producto'); return; }
+  const sinQty = carritoEntrada.find(i => !i.qty || Number(i.qty) <= 0);
+  if (sinQty) { toast('Ingresa la cantidad de: ' + sinQty.producto.nombre); return; }
+  if (!fotoEntrada) { toast('⚠ Adjunta la foto del recibo'); return; }
+  pinCallback = registrarEntrada;
+  abrirPin();
+}
+
+async function registrarEntrada() {
+  let fotoUrl = null;
+  try {
+    const ext = fotoEntrada.name.split('.').pop();
+    fotoUrl = await API.subirFoto(`entrada/${new Date().toISOString().split('T')[0]}/${crypto.randomUUID()}.${ext}`, fotoEntrada);
+  } catch { toast('Error al subir foto'); return; }
+  let errores = 0;
+  for (const item of carritoEntrada) {
+    const qty = Number(item.qty);
+    const nuevoStock = Number(item.producto.stock) + qty;
+    const cad = item.sinCad ? null : parseFecha(item.cad);
+    try {
+      await Promise.all([
+        API.updateStock(item.producto.id, nuevoStock),
+        API.addMovimiento({ tipo:'entrada', id_producto:item.producto.id, nombre:item.producto.nombre, cantidad:qty, unidad:item.unidad, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email, destino:document.getElementById('ent-prov')?.value||'', lote:item.sinLote?'':item.lote, caducidad_lote:cad, nota:document.getElementById('ent-nota')?.value||'', stock_resultante:nuevoStock, foto_evidencia:fotoUrl, almacen_id:almacenActivo?.id||null, created_at:new Date().toISOString() })
+      ]);
+    } catch { errores++; }
+  }
+  await API.addAuditoria({ tipo:'movimiento', descripcion:`Entrada de ${carritoEntrada.length} productos`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
+  toast(errores ? `⚠ ${errores} productos no se guardaron` : `✓ Entrada registrada — ${carritoEntrada.length} producto(s)`);
+  carritoEntrada = []; fotoEntrada = null;
+  document.getElementById('ent-carrito-card')?.classList.add('hidden');
+  document.getElementById('ent-form-general')?.classList.add('hidden');
+  document.getElementById('ent-buscar').value = '';
+  todosProductos = [];
+  cargarDashboard();
+}
+
+function cancelarEntrada() {
+  carritoEntrada = []; fotoEntrada = null;
+  document.getElementById('ent-carrito-card')?.classList.add('hidden');
+  document.getElementById('ent-form-general')?.classList.add('hidden');
+  document.getElementById('ent-buscar').value = '';
+}
+
+// ── CARRITO SALIDAS ───────────────────────────────────
+async function agregarAlCarritoSalida(id) {
+  if (carritoSalida.find(i => i.producto.id === id)) { toast('Este producto ya está en la lista'); return; }
+  const prod = await API.getProducto(id);
+  if (!prod) return;
+  if (Number(prod.stock) <= 0) { toast('Sin stock disponible: ' + prod.nombre); return; }
+  carritoSalida.push({ producto: prod, qty: '', unidad: prod.unidad||'L' });
+  document.getElementById('sal-buscar').value = '';
+  document.getElementById('sal-resultados').innerHTML = '';
+  renderCarritoSalida();
+}
+
+function renderCarritoSalida() {
+  const card = document.getElementById('sal-carrito-card');
+  const formGen = document.getElementById('sal-form-general');
+  if (!carritoSalida.length) { card?.classList.add('hidden'); formGen?.classList.add('hidden'); return; }
+  card?.classList.remove('hidden'); formGen?.classList.remove('hidden');
+  const count = document.getElementById('sal-carrito-count');
+  if (count) count.textContent = carritoSalida.length + ' producto(s)';
+  const lista = document.getElementById('sal-carrito-lista');
+  if (!lista) return;
+  lista.innerHTML = carritoSalida.map((item, i) => `
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>${item.producto.nombre}</strong><div style="font-size:11px;color:var(--text2)">Stock disponible: <strong>${item.producto.stock} ${item.unidad}</strong></div></div>
+        <button class="btn btn-sm" style="color:var(--red)" onclick="carritoSalida.splice(${i},1);renderCarritoSalida()">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div><label style="font-size:11px">Cantidad *</label><input class="input" type="number" min="0.01" step="0.01" max="${item.producto.stock}" placeholder="0" value="${item.qty}" oninput="carritoSalida[${i}].qty=this.value" style="font-size:12px"></div>
+        <div><label style="font-size:11px">Unidad</label><select class="input" onchange="carritoSalida[${i}].unidad=this.value" style="font-size:12px">${['L','kg','piezas','tambos','cajas','mL','g'].map(u=>`<option ${item.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      </div>
+    </div>`).join('');
+}
+
+function solicitarPinSalida() {
+  if (!carritoSalida.length) { toast('Agrega al menos un producto'); return; }
+  const sinQty = carritoSalida.find(i => !i.qty || Number(i.qty) <= 0);
+  if (sinQty) { toast('Ingresa la cantidad de: ' + sinQty.producto.nombre); return; }
+  const sinStock = carritoSalida.find(i => Number(i.qty) > Number(i.producto.stock));
+  if (sinStock) { toast(`Stock insuficiente: ${sinStock.producto.nombre} (disponible: ${sinStock.producto.stock})`); return; }
+  if (!fotoSalida) { toast('⚠ Adjunta la foto del vale'); return; }
+  pinCallback = registrarSalida;
+  abrirPin();
+}
+
+async function registrarSalida() {
+  let fotoUrl = null;
+  try {
+    const ext = fotoSalida.name.split('.').pop();
+    fotoUrl = await API.subirFoto(`salida/${new Date().toISOString().split('T')[0]}/${crypto.randomUUID()}.${ext}`, fotoSalida);
+  } catch { toast('Error al subir foto'); return; }
+  let errores = 0;
+  for (const item of carritoSalida) {
+    const qty = Number(item.qty);
+    const nuevoStock = Number(item.producto.stock) - qty;
+    try {
+      await Promise.all([
+        API.updateStock(item.producto.id, nuevoStock),
+        API.addMovimiento({ tipo:'salida', id_producto:item.producto.id, nombre:item.producto.nombre, cantidad:qty, unidad:item.unidad, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email, destino:document.getElementById('sal-dest')?.value||'', nota:document.getElementById('sal-nota')?.value||'', stock_resultante:nuevoStock, foto_evidencia:fotoUrl, almacen_id:almacenActivo?.id||null, created_at:new Date().toISOString() })
+      ]);
+    } catch { errores++; }
+  }
+  await API.addAuditoria({ tipo:'movimiento', descripcion:`Salida de ${carritoSalida.length} productos`, usuario_id:currentUser.id, usuario_nombre:currentProfile?.nombre||currentUser.email });
+  toast(errores ? `⚠ ${errores} productos no se guardaron` : `✓ Salida registrada — ${carritoSalida.length} producto(s)`);
+  carritoSalida = []; fotoSalida = null;
+  document.getElementById('sal-carrito-card')?.classList.add('hidden');
+  document.getElementById('sal-form-general')?.classList.add('hidden');
+  document.getElementById('sal-buscar').value = '';
+  todosProductos = [];
+  cargarDashboard();
+}
+
+function cancelarSalida() {
+  carritoSalida = []; fotoSalida = null;
+  document.getElementById('sal-carrito-card')?.classList.add('hidden');
+  document.getElementById('sal-form-general')?.classList.add('hidden');
+  document.getElementById('sal-buscar').value = '';
+}
+
+function parseFecha(str) {
+  if (!str) return null;
+  str = str.trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) { const [d,m,a]=str.split('/'); return `${a}-${m}-${d}`; }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  return null;
+}
