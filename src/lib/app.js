@@ -15,6 +15,9 @@ let fotoSalida       = null;
 let pinCallback      = null;
 let pedidoProductos  = [];
 
+let carritoEntrada   = [];
+let carritoSalida    = [];
+
 // ── SEGURIDAD: timeout de sesión (30 min inactividad) ──
 let sessionTimer = null;
 const SESSION_TIMEOUT = 30 * 60 * 1000;
@@ -34,6 +37,7 @@ function resetSessionTimer() {
 // ── SEGURIDAD: bloquear devtools en producción ──────────
 // (comentado para desarrollo; descomentar en producción)
 // document.addEventListener('contextmenu', e => e.preventDefault());
+
 
 // ── INIT ──────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -234,6 +238,75 @@ async function buscarProductoEntrada(q) {
     : '<div class="empty" style="padding:12px">Sin resultados</div>';
 }
 
+
+
+async function agregarAlCarritoEntrada(id) {
+  if (carritoEntrada.find(i => i.producto.id === id)) { toast('Este producto ya está en la lista'); return; }
+  const prod = await API.getProducto(id);
+  if (!prod) return;
+  carritoEntrada.push({ producto: prod, qty: '', unidad: prod.unidad||'L', lote: '', cad: '', sinLote: false, sinCad: false });
+  document.getElementById('ent-buscar').value = '';
+  document.getElementById('ent-resultados').innerHTML = '';
+  renderCarritoEntrada();
+}
+
+function renderCarritoEntrada() {
+  const card = document.getElementById('ent-carrito-card');
+  const formGen = document.getElementById('ent-form-general');
+  if (!carritoEntrada.length) { card?.classList.add('hidden'); formGen?.classList.add('hidden'); return; }
+  card?.classList.remove('hidden'); formGen?.classList.remove('hidden');
+  const count = document.getElementById('ent-carrito-count');
+  if (count) count.textContent = carritoEntrada.length + ' producto(s)';
+  const lista = document.getElementById('ent-carrito-lista');
+  if (!lista) return;
+  lista.innerHTML = carritoEntrada.map((item, i) => `
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>${item.producto.nombre}</strong><div style="font-size:11px;color:var(--text2)">Stock actual: ${item.producto.stock} ${item.unidad}</div></div>
+        <button class="btn btn-sm" style="color:var(--red)" onclick="carritoEntrada.splice(${i},1);renderCarritoEntrada()">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+        <div><label style="font-size:11px">Cantidad *</label><input class="input" type="number" min="0.01" step="0.01" placeholder="0" value="${item.qty}" oninput="carritoEntrada[${i}].qty=this.value" style="font-size:12px"></div>
+        <div><label style="font-size:11px">Unidad</label><select class="input" onchange="carritoEntrada[${i}].unidad=this.value" style="font-size:12px">${['L','kg','piezas','tambos','cajas','mL','g'].map(u=>`<option ${item.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+        <div><label style="font-size:11px">Lote <label style="font-weight:400"><input type="checkbox" ${item.sinLote?'checked':''} onchange="carritoEntrada[${i}].sinLote=this.checked;renderCarritoEntrada()"> Sin lote</label></label><input class="input" type="text" placeholder="L-2025-01" value="${item.lote}" ${item.sinLote?'disabled':''} oninput="carritoEntrada[${i}].lote=this.value" style="font-size:12px"></div>
+        <div><label style="font-size:11px">Caducidad <label style="font-weight:400"><input type="checkbox" ${item.sinCad?'checked':''} onchange="carritoEntrada[${i}].sinCad=this.checked;renderCarritoEntrada()"> Sin cad.</label></label><input class="input" type="text" placeholder="DD/MM/AAAA" value="${item.cad}" ${item.sinCad?'disabled':''} oninput="carritoEntrada[${i}].cad=this.value" style="font-size:12px"></div>
+      </div>
+    </div>`).join('');
+}
+
+async function agregarAlCarritoSalida(id) {
+  if (carritoSalida.find(i => i.producto.id === id)) { toast('Este producto ya está en la lista'); return; }
+  const prod = await API.getProducto(id);
+  if (!prod) return;
+  if (Number(prod.stock) <= 0) { toast('Sin stock disponible: ' + prod.nombre); return; }
+  carritoSalida.push({ producto: prod, qty: '', unidad: prod.unidad||'L' });
+  document.getElementById('sal-buscar').value = '';
+  document.getElementById('sal-resultados').innerHTML = '';
+  renderCarritoSalida();
+}
+
+function renderCarritoSalida() {
+  const card = document.getElementById('sal-carrito-card');
+  const formGen = document.getElementById('sal-form-general');
+  if (!carritoSalida.length) { card?.classList.add('hidden'); formGen?.classList.add('hidden'); return; }
+  card?.classList.remove('hidden'); formGen?.classList.remove('hidden');
+  const count = document.getElementById('sal-carrito-count');
+  if (count) count.textContent = carritoSalida.length + ' producto(s)';
+  const lista = document.getElementById('sal-carrito-lista');
+  if (!lista) return;
+  lista.innerHTML = carritoSalida.map((item, i) => `
+    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>${item.producto.nombre}</strong><div style="font-size:11px;color:var(--text2)">Stock disponible: <strong>${item.producto.stock} ${item.unidad}</strong></div></div>
+        <button class="btn btn-sm" style="color:var(--red)" onclick="carritoSalida.splice(${i},1);renderCarritoSalida()">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div><label style="font-size:11px">Cantidad *</label><input class="input" type="number" min="0.01" step="0.01" max="${item.producto.stock}" placeholder="0" value="${item.qty}" oninput="carritoSalida[${i}].qty=this.value" style="font-size:12px"></div>
+        <div><label style="font-size:11px">Unidad</label><select class="input" onchange="carritoSalida[${i}].unidad=this.value" style="font-size:12px">${['L','kg','piezas','tambos','cajas','mL','g'].map(u=>`<option ${item.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      </div>
+    </div>`).join('');
+}
+
 async function seleccionarProductoEntrada(id) {
   // Usar carrito multi-producto
   await agregarAlCarritoEntrada(id);
@@ -254,32 +327,6 @@ function onFotoEntrada(input) {
   const r=new FileReader(); r.onload=e=>{const p=document.getElementById('ent-foto-preview');p.src=e.target.result;p.classList.remove('hidden');}; r.readAsDataURL(file);
   const st=document.getElementById('ent-foto-status'); st.textContent='✓ Foto lista'; st.className='foto-status con-foto';
 }
-
-function solicitarPinEntrada() {
-  if(!productoEntrada){toast('Selecciona un producto');return;}
-  const qty=Number(document.getElementById('ent-qty').value);
-  if(!qty||qty<=0){toast('Ingresa una cantidad válida');return;}
-  if(!fotoEntrada){toast('⚠ Debes adjuntar la foto del recibo');return;}
-  pinCallback=registrarEntrada; abrirPin();
-}
-
-async function registrarEntrada() {
-  const qty=Number(document.getElementById('ent-qty').value);
-  const nuevoStock=Number(productoEntrada.stock)+qty;
-  const unit=document.getElementById('ent-unit').value;
-  let fotoUrl=null;
-  try { const ext=fotoEntrada.name.split('.').pop(); fotoUrl=await API.subirFoto(`entrada/${new Date().toISOString().split('T')[0]}/${crypto.randomUUID()}.${ext}`,fotoEntrada); }
-  catch{toast('Error al subir foto');return;}
-  const mov={tipo:'entrada',id_producto:productoEntrada.id,nombre:productoEntrada.nombre,cantidad:qty,unidad:unit,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,destino:document.getElementById('ent-prov').value,lote:document.getElementById('ent-lote').value,caducidad_lote:document.getElementById('ent-cad').value,nota:document.getElementById('ent-nota').value,stock_resultante:nuevoStock,foto_evidencia:fotoUrl,almacen_id:almacenActivo?.id,created_at:new Date().toISOString()};
-  try {
-    await Promise.all([API.addMovimiento(mov),API.updateStock(productoEntrada.id,nuevoStock)]);
-    await API.addAuditoria({tipo:'movimiento',descripcion:`Entrada de ${qty} ${unit} de ${productoEntrada.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{producto:productoEntrada.id,cantidad:qty,tipo:'entrada',nuevo_stock:nuevoStock}});
-    toast(`✓ Entrada registrada — nuevo stock: ${nuevoStock} ${unit}`);
-    iniciarEntradas(); todosProductos=[];
-  } catch{toast('Error al guardar');}
-}
-
-function cancelarEntrada(){document.getElementById('ent-form-card').classList.add('hidden');productoEntrada=null;fotoEntrada=null;}
 
 // ── SALIDAS ───────────────────────────────────────────
 function iniciarSalidas() {
@@ -309,20 +356,6 @@ async function seleccionarProductoSalida(id) {
 function resetFotoSalida(){fotoSalida=null;const prev=document.getElementById('sal-foto-preview');const inp=document.getElementById('sal-foto-input');if(prev){prev.src='';prev.classList.add('hidden');}if(inp)inp.value='';const st=document.getElementById('sal-foto-status');if(st){st.textContent='Sin foto';st.className='foto-status sin-foto';}}
 
 function onFotoSalida(input){const file=input.files[0];if(!file)return;if(!file.type.startsWith('image/')){toast('Solo imágenes');return;}if(file.size>5*1024*1024){toast('Máximo 5MB');return;}fotoSalida=file;const r=new FileReader();r.onload=e=>{const p=document.getElementById('sal-foto-preview');p.src=e.target.result;p.classList.remove('hidden');};r.readAsDataURL(file);const st=document.getElementById('sal-foto-status');st.textContent='✓ Foto lista';st.className='foto-status con-foto';}
-
-function solicitarPinSalida(){if(!productoSalida){toast('Selecciona un producto');return;}const qty=Number(document.getElementById('sal-qty').value);if(!qty||qty<=0){toast('Ingresa una cantidad válida');return;}if(qty>Number(productoSalida.stock)){toast(`Stock insuficiente. Solo hay ${productoSalida.stock} ${productoSalida.unidad||''}`);return;}if(!fotoSalida){toast('⚠ Debes adjuntar la foto del vale de entrega');return;}pinCallback=registrarSalida;abrirPin();}
-
-async function registrarSalida(){
-  const qty=Number(document.getElementById('sal-qty').value);const nuevoStock=Number(productoSalida.stock)-qty;const unit=document.getElementById('sal-unit').value;
-  let fotoUrl=null;
-  try{const ext=fotoSalida.name.split('.').pop();fotoUrl=await API.subirFoto(`salida/${new Date().toISOString().split('T')[0]}/${crypto.randomUUID()}.${ext}`,fotoSalida);}
-  catch{toast('Error al subir foto');return;}
-  const mov={tipo:'salida',id_producto:productoSalida.id,nombre:productoSalida.nombre,cantidad:qty,unidad:unit,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,destino:document.getElementById('sal-dest').value,lote:productoSalida.lote,caducidad_lote:productoSalida.caducidad,nota:document.getElementById('sal-nota').value,stock_resultante:nuevoStock,foto_evidencia:fotoUrl,almacen_id:almacenActivo?.id,created_at:new Date().toISOString()};
-  try{await Promise.all([API.addMovimiento(mov),API.updateStock(productoSalida.id,nuevoStock)]);await API.addAuditoria({tipo:'movimiento',descripcion:`Salida de ${qty} ${unit} de ${productoSalida.nombre}`,usuario_id:currentUser.id,usuario_nombre:currentProfile?.nombre||currentUser.email,metadata:{producto:productoSalida.id,cantidad:qty,tipo:'salida',nuevo_stock:nuevoStock}});toast(`✓ Salida registrada — nuevo stock: ${nuevoStock} ${unit}`);iniciarSalidas();todosProductos=[];}
-  catch{toast('Error al guardar');}
-}
-
-function cancelarSalida(){document.getElementById('sal-form-card').classList.add('hidden');productoSalida=null;fotoSalida=null;}
 
 // ── PIN MODAL ─────────────────────────────────────────
 function abrirPin(){document.getElementById('pin-pass').value='';document.getElementById('pin-error').textContent='';document.getElementById('pin-modal').classList.remove('hidden');document.getElementById('pin-pass').focus();}
@@ -482,33 +515,40 @@ async function marcarEntregado(id){
 
 // ── USUARIOS ──────────────────────────────────────────
 async function cargarUsuarios(expandirId) {
-  if(currentProfile?.rol!=='admin')return;
-  document.getElementById('users-lista').innerHTML='<div class="loading">Cargando...</div>';
+  if (currentProfile?.rol !== 'admin') return;
+  const el = document.getElementById('users-lista');
+  if (!el) return;
+  el.innerHTML = '<div class="loading">Cargando...</div>';
   try {
     const users = await API.getUsuarios();
-    if (!users.length) { document.getElementById('users-lista').innerHTML='<div class="empty">Sin usuarios</div>'; return; }
-    document.getElementById('users-lista').innerHTML = users.map(u => {
+    if (!users.length) { el.innerHTML = '<div class="empty">Sin usuarios</div>'; return; }
+    el.innerHTML = users.map(u => {
       const permsActivos = typeof MODULOS !== 'undefined'
         ? MODULOS.filter(m => u.permisos?.[m.key]).map(m => m.label) : [];
       const esAdmin = u.rol === 'admin';
+      const esMismo = u.id === currentUser.id;
       return `<div id="user-item-${u.id}">
         <div class="user-item">
           <div class="user-item-avatar">${(u.nombre||'?').substring(0,2).toUpperCase()}</div>
           <div class="user-item-body">
             <div class="user-item-name">${u.nombre||'—'} ${esAdmin?'<span class="badge badge-admin">Admin</span>':''}</div>
             <div class="user-item-email">${u.email||'—'}</div>
-            ${!esAdmin?`<div class="permisos-resumen">${permsActivos.length?permsActivos.slice(0,4).map(p=>'<span class="perm-chip">'+p+'</span>').join('')+(permsActivos.length>4?'<span class="perm-chip">+'+( permsActivos.length-4)+' más</span>':''):'<span class="perm-chip off">Sin permisos asignados</span>'}</div>`:'<div style="font-size:11px;color:var(--text3)">Acceso total al sistema</div>'}
+            ${!esAdmin?`<div class="permisos-resumen">${permsActivos.length
+              ? permsActivos.slice(0,3).map(p=>`<span class="perm-chip">${p}</span>`).join('') + (permsActivos.length>3?`<span class="perm-chip">+${permsActivos.length-3} más</span>`:'')
+              : '<span class="perm-chip off">Sin permisos</span>'}</div>`
+            : '<div style="font-size:11px;color:var(--text3)">Acceso total</div>'}
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
             ${!esAdmin?`<button class="btn btn-sm btn-primary" onclick="togglePermisosPanel('${u.id}')">⚙ Permisos</button>`:''}
-            ${u.id!==currentUser.id&&!esAdmin?`<button class="btn btn-sm" onclick="hacerAdmin('${u.id}','${(u.nombre||'').replace(/'/g,"\\'")}')">↑ Admin</button>`:''}
+            ${!esAdmin?`<button class="btn btn-sm" onclick="hacerAdmin('${u.id}','${(u.nombre||'').replace(/'/g,"\'")}')">↑ Admin</button>`:''}
+            ${!esMismo?`<button class="btn btn-sm" style="color:var(--red)" onclick="eliminarUsuarioSistema('${u.id}','${(u.nombre||'').replace(/'/g,"\'")}')">🗑 Eliminar</button>`:''}
           </div>
         </div>
         <div id="panel-permisos-${u.id}" class="hidden"></div>
       </div>`;
     }).join('');
     if (expandirId) togglePermisosPanel(expandirId);
-  } catch { document.getElementById('users-lista').innerHTML='<div class="empty">Error</div>'; }
+  } catch(e) { el.innerHTML = '<div class="empty">Error: ' + e.message + '</div>'; }
 }
 
 function togglePermisosPanel(userId) {
@@ -672,19 +712,9 @@ function switchMovStock(tipo) {
 // ── DASHBOARD UNIFICADO ───────────────────────────────
 async function cargarDashboardUnificado() {
   await cargarDashboard();
+  // Dir content disabled to avoid duplicate panels
   const inlineDiv = document.getElementById('dir-content-inline');
-  if (!inlineDiv) return;
-  if (currentProfile?.rol === 'admin' || tienePermiso('dir')) {
-    inlineDiv.innerHTML = '<div class="loading" style="margin-top:12px">Cargando resumen ejecutivo...</div>';
-    try {
-      // Llamar directamente a la función y capturar el HTML resultante
-      await cargarDashboardDirInline(inlineDiv);
-    } catch(e) {
-      inlineDiv.innerHTML = '';
-    }
-  } else {
-    inlineDiv.innerHTML = '';
-  }
+  if (inlineDiv) inlineDiv.innerHTML = '';
 }
 
 // ── ELIMINAR USUARIO ──────────────────────────────────
@@ -891,39 +921,7 @@ function switchPedidos(vista) {
 }
 
 // ── CARRITO ENTRADAS ──────────────────────────────────
-async function agregarAlCarritoEntrada(id) {
-  if (carritoEntrada.find(i => i.producto.id === id)) { toast('Este producto ya está en la lista'); return; }
-  const prod = await API.getProducto(id);
-  if (!prod) return;
-  carritoEntrada.push({ producto: prod, qty: '', unidad: prod.unidad||'L', lote: '', cad: '', sinLote: false, sinCad: false });
-  document.getElementById('ent-buscar').value = '';
-  document.getElementById('ent-resultados').innerHTML = '';
-  renderCarritoEntrada();
-}
 
-function renderCarritoEntrada() {
-  const card = document.getElementById('ent-carrito-card');
-  const formGen = document.getElementById('ent-form-general');
-  if (!carritoEntrada.length) { card?.classList.add('hidden'); formGen?.classList.add('hidden'); return; }
-  card?.classList.remove('hidden'); formGen?.classList.remove('hidden');
-  const count = document.getElementById('ent-carrito-count');
-  if (count) count.textContent = carritoEntrada.length + ' producto(s)';
-  const lista = document.getElementById('ent-carrito-lista');
-  if (!lista) return;
-  lista.innerHTML = carritoEntrada.map((item, i) => `
-    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div><strong>${item.producto.nombre}</strong><div style="font-size:11px;color:var(--text2)">Stock actual: ${item.producto.stock} ${item.unidad}</div></div>
-        <button class="btn btn-sm" style="color:var(--red)" onclick="carritoEntrada.splice(${i},1);renderCarritoEntrada()">✕</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
-        <div><label style="font-size:11px">Cantidad *</label><input class="input" type="number" min="0.01" step="0.01" placeholder="0" value="${item.qty}" oninput="carritoEntrada[${i}].qty=this.value" style="font-size:12px"></div>
-        <div><label style="font-size:11px">Unidad</label><select class="input" onchange="carritoEntrada[${i}].unidad=this.value" style="font-size:12px">${['L','kg','piezas','tambos','cajas','mL','g'].map(u=>`<option ${item.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
-        <div><label style="font-size:11px">Lote <label style="font-weight:400"><input type="checkbox" ${item.sinLote?'checked':''} onchange="carritoEntrada[${i}].sinLote=this.checked;renderCarritoEntrada()"> Sin lote</label></label><input class="input" type="text" placeholder="L-2025-01" value="${item.lote}" ${item.sinLote?'disabled':''} oninput="carritoEntrada[${i}].lote=this.value" style="font-size:12px"></div>
-        <div><label style="font-size:11px">Caducidad <label style="font-weight:400"><input type="checkbox" ${item.sinCad?'checked':''} onchange="carritoEntrada[${i}].sinCad=this.checked;renderCarritoEntrada()"> Sin cad.</label></label><input class="input" type="text" placeholder="DD/MM/AAAA" value="${item.cad}" ${item.sinCad?'disabled':''} oninput="carritoEntrada[${i}].cad=this.value" style="font-size:12px"></div>
-      </div>
-    </div>`).join('');
-}
 
 function solicitarPinEntrada() {
   if (!carritoEntrada.length) { toast('Agrega al menos un producto'); return; }
@@ -970,38 +968,7 @@ function cancelarEntrada() {
 }
 
 // ── CARRITO SALIDAS ───────────────────────────────────
-async function agregarAlCarritoSalida(id) {
-  if (carritoSalida.find(i => i.producto.id === id)) { toast('Este producto ya está en la lista'); return; }
-  const prod = await API.getProducto(id);
-  if (!prod) return;
-  if (Number(prod.stock) <= 0) { toast('Sin stock disponible: ' + prod.nombre); return; }
-  carritoSalida.push({ producto: prod, qty: '', unidad: prod.unidad||'L' });
-  document.getElementById('sal-buscar').value = '';
-  document.getElementById('sal-resultados').innerHTML = '';
-  renderCarritoSalida();
-}
 
-function renderCarritoSalida() {
-  const card = document.getElementById('sal-carrito-card');
-  const formGen = document.getElementById('sal-form-general');
-  if (!carritoSalida.length) { card?.classList.add('hidden'); formGen?.classList.add('hidden'); return; }
-  card?.classList.remove('hidden'); formGen?.classList.remove('hidden');
-  const count = document.getElementById('sal-carrito-count');
-  if (count) count.textContent = carritoSalida.length + ' producto(s)';
-  const lista = document.getElementById('sal-carrito-lista');
-  if (!lista) return;
-  lista.innerHTML = carritoSalida.map((item, i) => `
-    <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div><strong>${item.producto.nombre}</strong><div style="font-size:11px;color:var(--text2)">Stock disponible: <strong>${item.producto.stock} ${item.unidad}</strong></div></div>
-        <button class="btn btn-sm" style="color:var(--red)" onclick="carritoSalida.splice(${i},1);renderCarritoSalida()">✕</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <div><label style="font-size:11px">Cantidad *</label><input class="input" type="number" min="0.01" step="0.01" max="${item.producto.stock}" placeholder="0" value="${item.qty}" oninput="carritoSalida[${i}].qty=this.value" style="font-size:12px"></div>
-        <div><label style="font-size:11px">Unidad</label><select class="input" onchange="carritoSalida[${i}].unidad=this.value" style="font-size:12px">${['L','kg','piezas','tambos','cajas','mL','g'].map(u=>`<option ${item.unidad===u?'selected':''}>${u}</option>`).join('')}</select></div>
-      </div>
-    </div>`).join('');
-}
 
 function solicitarPinSalida() {
   if (!carritoSalida.length) { toast('Agrega al menos un producto'); return; }

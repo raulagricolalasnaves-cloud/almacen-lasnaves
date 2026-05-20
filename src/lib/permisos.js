@@ -23,6 +23,8 @@ const MODULOS = [
   { key:'auditoria',       label:'Auditoría',               desc:'Historial completo de cambios' },
   { key:'almacenes',       label:'Gestión de almacenes',    desc:'Crear y cambiar entre almacenes' },
   { key:'usuarios_admin',  label:'Gestión de usuarios',     desc:'Crear y administrar usuarios del sistema' },
+  { key:'usuarios_editar', label:'Editar y eliminar usuarios', desc:'Modificar datos y eliminar usuarios' },
+  { key:'almacenes_editar',label:'Editar y eliminar almacenes',desc:'Modificar y eliminar almacenes' },
 ];
 
 // Permisos predeterminados para nuevos usuarios (ninguno)
