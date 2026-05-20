@@ -134,6 +134,75 @@
       <div id="kpi-content"></div>
     </section>
 
+    <!-- INVENTARIO -->
+    <section id="tab-inventario" class="tab hidden">
+      <div class="page-header">
+        <div class="page-title">Inventario</div>
+        <button class="btn btn-sm" onclick="cargarInventario()">↻ Actualizar</button>
+      </div>
+      <div class="card">
+        <input class="input" type="text" placeholder="Buscar por nombre, código, ingrediente activo o ubicación..." oninput="filtrarInv(this.value)" style="margin-bottom:10px">
+        <div id="inv-lista"><div class="loading">Cargando...</div></div>
+      </div>
+      <div id="inv-admin-panel" class="hidden" style="margin-top:10px">
+        <button class="btn btn-primary btn-full" onclick="mostrarFormProducto()">+ Agregar producto manualmente</button>
+        <div id="form-producto" class="card hidden" style="margin-top:12px">
+          <div class="card-header">Nuevo producto <span style="font-size:11px;color:var(--text3);font-weight:400">— Solo el nombre es obligatorio</span></div>
+          <div class="form-row">
+            <div class="form-group"><label>Código (opcional, se genera automático)</label><input class="input" type="text" id="np-id" placeholder="Ej: QM-008 (opcional)"></div>
+            <div class="form-group"><label>Nombre del producto <span style="color:var(--red)">*</span></label><input class="input" type="text" id="np-nombre" placeholder="Nombre del producto"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Stock inicial</label><input class="input" type="number" id="np-stock" placeholder="0"></div>
+            <div class="form-group"><label>Stock mínimo</label><input class="input" type="number" id="np-min" placeholder="0"></div>
+            <div class="form-group"><label>Precio unitario ($)</label><input class="input" type="number" id="np-precio" placeholder="0.00"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Unidad</label><select class="input" id="np-unit"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option><option>mL</option><option>g</option></select></div>
+            <div class="form-group"><label>Proveedor</label><input class="input" type="text" id="np-prov" placeholder="Proveedor"></div>
+            <div class="form-group"><label>Ubicación</label><input class="input" type="text" id="np-ubicacion" placeholder="Pasillo A-3"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Lote</label><input class="input" type="text" id="np-lote" placeholder="L-2025-01"></div>
+            <div class="form-group"><label>Caducidad</label><input class="input" type="text" id="np-cad" placeholder="AAAA-MM-DD"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="np-ingrediente" placeholder="Ej: Glifosato, Cobre"></div>
+            <div class="form-group"><label>Descripción</label><input class="input" type="text" id="np-descripcion" placeholder="Descripción breve"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Peligrosidad GHS</label><select class="input" id="np-peligro"><option value="">Sin clasificar</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option><option value="ninguno">Ninguno</option></select></div>
+            <div class="form-group"><label>Clases GHS (separadas por coma)</label><input class="input" type="text" id="np-ghs" placeholder="inflamable,corrosivo"></div>
+          </div>
+          <div class="form-group"><label>🔗 Link de ficha técnica (SDS)</label><input class="input" type="url" id="np-sds-link" placeholder="https://..."></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-primary" style="flex:1" onclick="guardarProducto()">Guardar producto</button>
+            <button class="btn" style="flex:1" onclick="document.getElementById('form-producto').classList.add('hidden')">Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal editar producto -->
+      <div id="modal-editar-prod" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width:520px;max-height:90vh;overflow-y:auto">
+          <div class="modal-title">✏ Editar producto</div>
+          <input type="hidden" id="ep-id">
+          <div class="form-row"><div class="form-group"><label>Nombre *</label><input class="input" type="text" id="ep-nombre"></div><div class="form-group"><label>Unidad</label><select class="input" id="ep-unidad"><option>L</option><option>kg</option><option>piezas</option><option>tambos</option><option>cajas</option><option>mL</option><option>g</option></select></div></div>
+          <div class="form-row"><div class="form-group"><label>Stock</label><input class="input" type="number" id="ep-stock" min="0" step="0.01"></div><div class="form-group"><label>Mínimo</label><input class="input" type="number" id="ep-min" min="0" step="0.01"></div><div class="form-group"><label>Precio ($)</label><input class="input" type="number" id="ep-precio" min="0" step="0.01"></div></div>
+          <div class="form-row"><div class="form-group"><label>Proveedor</label><input class="input" type="text" id="ep-prov"></div><div class="form-group"><label>Ubicación</label><input class="input" type="text" id="ep-ubicacion"></div></div>
+          <div class="form-row"><div class="form-group"><label>Lote</label><input class="input" type="text" id="ep-lote"></div><div class="form-group"><label>Caducidad</label><input class="input" type="text" id="ep-cad" placeholder="AAAA-MM-DD"></div></div>
+          <div class="form-row"><div class="form-group"><label>Ingrediente activo</label><input class="input" type="text" id="ep-ingrediente"></div><div class="form-group"><label>Descripción</label><input class="input" type="text" id="ep-descripcion"></div></div>
+          <div class="form-row"><div class="form-group"><label>Peligrosidad</label><select class="input" id="ep-peligro"><option value="">Sin clasificar</option><option value="alto">Alto</option><option value="medio">Medio</option><option value="bajo">Bajo</option><option value="ninguno">Ninguno</option></select></div><div class="form-group"><label>Clases GHS</label><input class="input" type="text" id="ep-ghs"></div></div>
+          <div class="form-group"><label>🔗 Link ficha técnica</label><input class="input" type="url" id="ep-sds-link" placeholder="https://..."></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn" style="flex:1" onclick="cerrarEditarProducto()">Cancelar</button>
+            <button class="btn btn-primary" style="flex:2" onclick="guardarEdicionProducto()">✓ Guardar cambios</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
 <!-- dir tab removed - content integrated in dashboard -->
 
     <!-- KPIs Y PREDICCIÓN -->

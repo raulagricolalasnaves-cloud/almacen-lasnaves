@@ -140,8 +140,10 @@ function aplicarPermisosTabs(rol) {
 function goTo(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.remove('hidden');
-  btn.classList.add('active');
+  const tabEl = document.getElementById('tab-' + tab);
+  if (!tabEl) { console.warn('Tab not found: tab-' + tab); return; }
+  tabEl.classList.remove('hidden');
+  if (btn) btn.classList.add('active');
   if (typeof stopScanner === 'function') stopScanner();
   if (typeof stopScannerEnt === 'function') stopScannerEnt();
   if (typeof stopScannerSal === 'function') stopScannerSal();
@@ -233,26 +235,8 @@ async function buscarProductoEntrada(q) {
 }
 
 async function seleccionarProductoEntrada(id) {
-  productoEntrada = await API.getProducto(id);
-  if (!productoEntrada) return;
-  document.getElementById('ent-resultados').innerHTML = '';
-  document.getElementById('ent-buscar').value = productoEntrada.nombre;
-  document.getElementById('ent-prod-nombre').textContent = productoEntrada.nombre;
-  document.getElementById('ent-prod-id').textContent = productoEntrada.id;
-  document.getElementById('ent-prod-stock').textContent = productoEntrada.stock + ' ' + (productoEntrada.unidad||'');
-  // Mostrar banner SDS si tiene peligrosidad
-  const banner = document.getElementById('ent-sds-banner');
-  if (productoEntrada.peligrosidad && productoEntrada.peligrosidad !== 'ninguno') {
-    banner.innerHTML = `<div class="sds-banner ${productoEntrada.peligrosidad}">⚠ Producto de peligrosidad <strong>${productoEntrada.peligrosidad}</strong>${productoEntrada.clase_ghs?' — '+productoEntrada.clase_ghs:''} <button class="btn btn-sm" onclick="verSDS(productoEntrada)">Ver SDS</button></div>`;
-  } else { banner.innerHTML = ''; }
-  if (productoEntrada.unidad) { const sel=document.getElementById('ent-unit'); [...sel.options].forEach(o=>{if(o.value===productoEntrada.unidad)sel.value=o.value;}); }
-  document.getElementById('ent-qty').value = '';
-  document.getElementById('ent-lote').value = productoEntrada.lote || '';
-  document.getElementById('ent-prov').value = productoEntrada.proveedor || '';
-  document.getElementById('ent-nota').value = '';
-  resetFotoEntrada();
-  document.getElementById('ent-form-card').classList.remove('hidden');
-  document.getElementById('ent-form-card').scrollIntoView({behavior:'smooth',block:'nearest'});
+  // Usar carrito multi-producto
+  await agregarAlCarritoEntrada(id);
 }
 
 function resetFotoEntrada() {
@@ -318,21 +302,8 @@ async function buscarProductoSalida(q) {
 }
 
 async function seleccionarProductoSalida(id) {
-  productoSalida=await API.getProducto(id);if(!productoSalida)return;
-  document.getElementById('sal-resultados').innerHTML='';
-  document.getElementById('sal-buscar').value=productoSalida.nombre;
-  document.getElementById('sal-prod-nombre').textContent=productoSalida.nombre;
-  document.getElementById('sal-prod-id').textContent=productoSalida.id;
-  document.getElementById('sal-prod-stock').textContent=productoSalida.stock+' '+(productoSalida.unidad||'');
-  const banner=document.getElementById('sal-sds-banner');
-  if(productoSalida.peligrosidad&&productoSalida.peligrosidad!=='ninguno'){
-    banner.innerHTML=`<div class="sds-banner ${productoSalida.peligrosidad}">⚠ Producto de peligrosidad <strong>${productoSalida.peligrosidad}</strong> <button class="btn btn-sm" onclick="verSDS(productoSalida)">Ver SDS</button></div>`;
-  }else{banner.innerHTML='';}
-  if(productoSalida.unidad){const sel=document.getElementById('sal-unit');[...sel.options].forEach(o=>{if(o.value===productoSalida.unidad)sel.value=o.value;});}
-  document.getElementById('sal-qty').value='';document.getElementById('sal-dest').value='';document.getElementById('sal-nota').value='';
-  resetFotoSalida();
-  document.getElementById('sal-form-card').classList.remove('hidden');
-  document.getElementById('sal-form-card').scrollIntoView({behavior:'smooth',block:'nearest'});
+  // Usar carrito multi-producto
+  await agregarAlCarritoSalida(id);
 }
 
 function resetFotoSalida(){fotoSalida=null;const prev=document.getElementById('sal-foto-preview');const inp=document.getElementById('sal-foto-input');if(prev){prev.src='';prev.classList.add('hidden');}if(inp)inp.value='';const st=document.getElementById('sal-foto-status');if(st){st.textContent='Sin foto';st.className='foto-status sin-foto';}}
