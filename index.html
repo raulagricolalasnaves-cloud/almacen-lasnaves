@@ -81,6 +81,13 @@
     <button class="foto-modal-close" onclick="cerrarFotoModal()">✕</button>
     <img id="foto-modal-img" src="" alt="Evidencia">
   </div>
+  <div id="mov-detalle-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width:420px">
+      <div class="modal-title">📋 Detalle del movimiento</div>
+      <div id="mov-detalle-body"></div>
+      <button class="btn" style="width:100%;margin-top:14px" onclick="cerrarDetalleMovimiento()">Cerrar</button>
+    </div>
+  </div>
   <div id="pin-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-title">🔐 Confirmar identidad</div>

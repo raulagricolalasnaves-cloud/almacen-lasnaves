@@ -22,6 +22,21 @@ let carritoSalida    = [];
 let sessionTimer = null;
 const SESSION_TIMEOUT = 30 * 60 * 1000;
 
+// ── SEGURIDAD: caducidad absoluta de sesión (1 hora) ───
+// Aunque el navegador siga abierto, la sesión caduca 1 hora
+// después del inicio de sesión y se vuelven a pedir credenciales.
+const SESSION_MAX_EDAD = 60 * 60 * 1000;
+const SESSION_LOGIN_KEY = 'lasnaves_login_ts';
+
+// Devuelve true si la sesión ya superó su edad máxima.
+function sesionExpiradaPorEdad() {
+  try {
+    const ts = Number(window.sessionStorage.getItem(SESSION_LOGIN_KEY));
+    if (!ts) return false;               // sin marca: no se fuerza cierre aquí
+    return (Date.now() - ts) > SESSION_MAX_EDAD;
+  } catch { return false; }
+}
+
 function resetSessionTimer() {
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(async () => {
@@ -33,6 +48,15 @@ function resetSessionTimer() {
 ['click','keydown','touchstart','scroll'].forEach(ev =>
   document.addEventListener(ev, resetSessionTimer, { passive: true })
 );
+
+// Chequeo periódico: si el ERP queda abierto y la sesión supera
+// su edad máxima (1 hora), se cierra aunque haya actividad.
+setInterval(async () => {
+  if (currentUser && sesionExpiradaPorEdad()) {
+    toast('Sesión cerrada: ha caducado por seguridad');
+    await API.signOut();
+  }
+}, 60 * 1000);
 
 // ── SEGURIDAD: bloquear devtools en producción ──────────
 // (comentado para desarrollo; descomentar en producción)
@@ -46,10 +70,27 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (el) el.textContent = d.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
 
   const session = await API.getSession();
-  if (session) { currentUser = session.user; await cargarPerfil(); }
+  if (session) {
+    // Si la sesión guardada ya superó 1 hora de antigüedad, se cierra
+    // y se piden credenciales de nuevo en lugar de entrar automáticamente.
+    if (sesionExpiradaPorEdad()) {
+      try { window.sessionStorage.removeItem(SESSION_LOGIN_KEY); } catch {}
+      await API.signOut();
+    } else {
+      currentUser = session.user; await cargarPerfil();
+    }
+  }
 
   db.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session) {
+      // Marca de tiempo del login: base para la caducidad de 1 hora.
+      // Solo se escribe si no existe, para no reiniciar el contador
+      // cuando Supabase renueva el token automáticamente.
+      try {
+        if (!window.sessionStorage.getItem(SESSION_LOGIN_KEY)) {
+          window.sessionStorage.setItem(SESSION_LOGIN_KEY, String(Date.now()));
+        }
+      } catch {}
       currentUser = session.user;
       await cargarPerfil();
       resetSessionTimer();
@@ -62,6 +103,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       });
     } else if (event === 'SIGNED_OUT') {
       clearTimeout(sessionTimer);
+      try { window.sessionStorage.removeItem(SESSION_LOGIN_KEY); } catch {}
       currentUser = null; currentProfile = null; mostrarLogin();
     }
   });
@@ -319,12 +361,58 @@ function resetFotoEntrada() {
   const st=document.getElementById('ent-foto-status'); if(st){st.textContent='Sin foto';st.className='foto-status sin-foto';}
 }
 
-function onFotoEntrada(input) {
+// ── COMPRESIÓN DE IMÁGENES ────────────────────────────
+// Reduce el tamaño de una foto antes de subirla a Supabase.
+// Redibuja la imagen en un canvas con un ancho máximo y la
+// reexporta como JPEG de calidad reducida. Una foto de recibo
+// de 3-5 MB suele quedar en 150-350 KB, perfectamente legible.
+// Si algo falla, devuelve el archivo ORIGINAL: nunca deja sin foto.
+function comprimirImagen(file, maxAncho = 1600, calidad = 0.7) {
+  return new Promise((resolve) => {
+    try {
+      // Si ya es pequeña (<400 KB), no vale la pena recomprimir.
+      if (file.size <= 400 * 1024) { resolve(file); return; }
+      const lector = new FileReader();
+      lector.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let { width, height } = img;
+            // Escala proporcional solo si supera el ancho máximo.
+            if (width > maxAncho) {
+              height = Math.round(height * (maxAncho / width));
+              width = maxAncho;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+              // Si el canvas falla o el resultado es mayor que el original,
+              // se conserva el archivo original.
+              if (!blob || blob.size >= file.size) { resolve(file); return; }
+              // Se reconstruye como File para conservar un nombre con .jpg
+              const nombre = (file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg';
+              resolve(new File([blob], nombre, { type: 'image/jpeg' }));
+            }, 'image/jpeg', calidad);
+          } catch (err) { resolve(file); }
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      lector.onerror = () => resolve(file);
+      lector.readAsDataURL(file);
+    } catch (err) { resolve(file); }
+  });
+}
+
+async function onFotoEntrada(input) {
   const file=input.files[0]; if(!file)return;
   if(!file.type.startsWith('image/')){toast('Solo imágenes');return;}
   if(file.size>5*1024*1024){toast('Máximo 5MB');return;}
-  fotoEntrada=file;
-  const r=new FileReader(); r.onload=e=>{const p=document.getElementById('ent-foto-preview');p.src=e.target.result;p.classList.remove('hidden');}; r.readAsDataURL(file);
+  fotoEntrada = await comprimirImagen(file);
+  const r=new FileReader(); r.onload=e=>{const p=document.getElementById('ent-foto-preview');p.src=e.target.result;p.classList.remove('hidden');}; r.readAsDataURL(fotoEntrada);
   const st=document.getElementById('ent-foto-status'); st.textContent='✓ Foto lista'; st.className='foto-status con-foto';
 }
 
@@ -355,7 +443,7 @@ async function seleccionarProductoSalida(id) {
 
 function resetFotoSalida(){fotoSalida=null;const prev=document.getElementById('sal-foto-preview');const inp=document.getElementById('sal-foto-input');if(prev){prev.src='';prev.classList.add('hidden');}if(inp)inp.value='';const st=document.getElementById('sal-foto-status');if(st){st.textContent='Sin foto';st.className='foto-status sin-foto';}}
 
-function onFotoSalida(input){const file=input.files[0];if(!file)return;if(!file.type.startsWith('image/')){toast('Solo imágenes');return;}if(file.size>5*1024*1024){toast('Máximo 5MB');return;}fotoSalida=file;const r=new FileReader();r.onload=e=>{const p=document.getElementById('sal-foto-preview');p.src=e.target.result;p.classList.remove('hidden');};r.readAsDataURL(file);const st=document.getElementById('sal-foto-status');st.textContent='✓ Foto lista';st.className='foto-status con-foto';}
+async function onFotoSalida(input){const file=input.files[0];if(!file)return;if(!file.type.startsWith('image/')){toast('Solo imágenes');return;}if(file.size>5*1024*1024){toast('Máximo 5MB');return;}fotoSalida=await comprimirImagen(file);const r=new FileReader();r.onload=e=>{const p=document.getElementById('sal-foto-preview');p.src=e.target.result;p.classList.remove('hidden');};r.readAsDataURL(fotoSalida);const st=document.getElementById('sal-foto-status');st.textContent='✓ Foto lista';st.className='foto-status con-foto';}
 
 // ── PIN MODAL ─────────────────────────────────────────
 function abrirPin(){document.getElementById('pin-pass').value='';document.getElementById('pin-error').textContent='';document.getElementById('pin-modal').classList.remove('hidden');document.getElementById('pin-pass').focus();}
@@ -476,14 +564,53 @@ function filtrarMov(){const tipo=document.getElementById('fil-tipo').value;const
 
 function renderMovItem(m){
   const signo=m.tipo==='entrada'?'+':'−';const fecha=m.created_at?new Date(m.created_at).toLocaleString('es-MX'):'—';const color=m.tipo==='entrada'?'entrada':'salida';
-  const fotoHtml=m.foto_evidencia?`<div class="mov-foto"><a href="#" onclick="verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale'}</a></div>`:'';
+  const fotoHtml=m.foto_evidencia?`<div class="mov-foto"><a href="#" onclick="event.stopPropagation();verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale'}</a></div>`:'';
   const esAdmin=currentProfile?.rol==='admin';
-  const deleteBtn=esAdmin?`<button class="btn btn-sm" style="color:var(--red);padding:2px 6px;font-size:11px;margin-top:4px" onclick="eliminarMovimiento('${m.id}','${(m.nombre||'').replace(/'/g,"\\'")}')">🗑 Eliminar</button>`:'';
-  return`<div class="mov-item"><div class="mov-dot ${color}">${m.tipo==='entrada'?'↓':m.tipo==='ajuste'?'⚙':'↑'}</div><div class="mov-body"><div class="mov-name">${m.nombre}</div><div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>${fotoHtml}${deleteBtn}</div><div class="mov-qty ${color}">${m.tipo==='ajuste'?'':signo}${m.cantidad} ${m.unidad||''}</div></div>`;
+  const deleteBtn=esAdmin?`<button class="btn btn-sm" style="color:var(--red);padding:2px 6px;font-size:11px;margin-top:4px" onclick="event.stopPropagation();eliminarMovimiento('${m.id}','${(m.nombre||'').replace(/'/g,"\\'")}')">🗑 Eliminar</button>`:'';
+  return`<div class="mov-item" style="cursor:pointer" onclick="verDetalleMovimiento('${m.id}')"><div class="mov-dot ${color}">${m.tipo==='entrada'?'↓':m.tipo==='ajuste'?'⚙':'↑'}</div><div class="mov-body"><div class="mov-name">${m.nombre}</div><div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>${fotoHtml}${deleteBtn}</div><div class="mov-qty ${color}">${m.tipo==='ajuste'?'':signo}${m.cantidad} ${m.unidad||''}</div></div>`;
 }
 
 function verFoto(url){const modal=document.getElementById('foto-modal');const img=document.getElementById('foto-modal-img');if(!modal||!img)return;img.src=url;modal.classList.remove('hidden');}
 function cerrarFotoModal(){document.getElementById('foto-modal')?.classList.add('hidden');const img=document.getElementById('foto-modal-img');if(img)img.src='';}
+
+// ── DETALLE DE MOVIMIENTO ─────────────────────────────
+// Muestra toda la información de un movimiento en un modal.
+// Lee de la lista ya cargada (todosMovimientos): no consulta
+// la red de nuevo y no depende de ninguna función externa.
+function verDetalleMovimiento(id){
+  const m=(todosMovimientos||[]).find(x=>String(x.id)===String(id));
+  if(!m){toast('No se encontró el movimiento');return;}
+  const body=document.getElementById('mov-detalle-body');
+  if(!body)return;
+  const fecha=m.created_at?new Date(m.created_at).toLocaleString('es-MX'):'—';
+  const tipoTxt=m.tipo==='entrada'?'Entrada':m.tipo==='salida'?'Salida':'Ajuste';
+  const signo=m.tipo==='entrada'?'+':m.tipo==='salida'?'−':'';
+  // Construye una fila solo si el campo tiene valor.
+  const fila=(etiqueta,valor)=>valor?`<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--gray);font-size:13px">${etiqueta}</span><span style="font-weight:600;font-size:13px;text-align:right">${valor}</span></div>`:'';
+  let html='';
+  html+=fila('Producto',m.nombre);
+  html+=fila('Tipo',tipoTxt);
+  html+=fila('Cantidad',`${signo}${m.cantidad} ${m.unidad||''}`);
+  html+=fila('Stock resultante',(m.stock_resultante!==null&&m.stock_resultante!==undefined)?`${m.stock_resultante} ${m.unidad||''}`:'');
+  html+=fila('Fecha',fecha);
+  html+=fila('Usuario',m.usuario_nombre);
+  html+=fila(m.tipo==='entrada'?'Proveedor / origen':'Destino',m.destino);
+  html+=fila('Lote',m.lote);
+  html+=fila('Caducidad del lote',m.caducidad_lote);
+  html+=fila('Nota',m.nota);
+  if(m.foto_evidencia){
+    html+=`<div style="margin-top:12px">
+      <div style="color:var(--gray);font-size:13px;margin-bottom:6px">${m.tipo==='entrada'?'Recibo':'Vale'} de evidencia</div>
+      <img src="${m.foto_evidencia}" alt="Evidencia" style="width:100%;border-radius:var(--radius);cursor:pointer" onclick="verFoto('${m.foto_evidencia}')">
+      <div style="font-size:11px;color:var(--gray);margin-top:4px;text-align:center">Toca la imagen para ampliarla</div>
+    </div>`;
+  } else {
+    html+=`<div style="margin-top:12px;color:var(--gray);font-size:13px;text-align:center">Sin foto de evidencia</div>`;
+  }
+  body.innerHTML=html;
+  document.getElementById('mov-detalle-modal')?.classList.remove('hidden');
+}
+function cerrarDetalleMovimiento(){document.getElementById('mov-detalle-modal')?.classList.add('hidden');}
 
 // ── PEDIDOS ───────────────────────────────────────────
 async function cargarPedidos(){
@@ -627,7 +754,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('l-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   document.getElementById('pin-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')confirmPin();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){cerrarFotoModal();cerrarSDS();cerrarQR();}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){cerrarFotoModal();cerrarSDS();cerrarQR();cerrarDetalleMovimiento();}});
 });
 
 // ── ELIMINAR REGISTROS ────────────────────────────────

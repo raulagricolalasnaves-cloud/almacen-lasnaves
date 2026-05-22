@@ -14,5 +14,14 @@ const CONFIG = {
 };
 
 // Inicializar cliente Supabase
+// SEGURIDAD: se usa sessionStorage en lugar del localStorage por
+// defecto. Así la sesión NO sobrevive al cierre del navegador:
+// al volver a abrir el ERP, se piden credenciales de nuevo.
 const { createClient } = supabase;
-const db = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON);
+const db = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON, {
+  auth: {
+    storage: window.sessionStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
