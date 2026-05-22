@@ -223,14 +223,12 @@ async function cargarDashboard() {
     const cad  = prods.filter(p => p.caducidad && Math.floor((new Date(p.caducidad)-hoy)/86400000) < 90).length;
     const act  = peds.filter(p => p.estado !== 'Entregado').length;
     const prodsActivos = prods.filter(p => Number(p.stock) > 0);
-    document.getElementById('m-prod').textContent = prodsActivos.length;
-    document.getElementById('m-bajo').textContent = bajo;
-    document.getElementById('m-cad').textContent  = cad;
-    document.getElementById('m-ped').textContent  = act;
     const cnt = bajo + cad;
     const dot = document.getElementById('alert-count');
-    dot.textContent = cnt;
-    cnt > 0 ? dot.classList.remove('hidden') : dot.classList.add('hidden');
+    if (dot) {
+      dot.textContent = cnt;
+      cnt > 0 ? dot.classList.remove('hidden') : dot.classList.add('hidden');
+    }
     document.getElementById('dash-movs').innerHTML = movs.length ? movs.map(renderMovItem).join('') : '<div class="empty">Sin movimientos aún</div>';
 
     const valTot=prods.reduce((s,p)=>s+(Number(p.stock)*Number(p.precio_unitario||0)),0);
@@ -241,7 +239,7 @@ async function cargarDashboard() {
     if(qkpis) qkpis.innerHTML=`
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px">
         ${valTot>0?`<div class="kpi-main-card" style="border-left:3px solid var(--green)"><div class="kpi-icon" style="background:var(--green-bg);color:var(--green)">💰</div><div><div class="kpi-label">Valor</div><div class="kpi-val" style="color:var(--green);font-size:14px">$${valTot.toLocaleString('es-MX',{maximumFractionDigits:0})}</div></div></div>`:''}
-        <div class="kpi-main-card" style="border-left:3px solid var(--blue)"><div class="kpi-icon" style="background:var(--blue-bg);color:var(--blue)">📦</div><div><div class="kpi-label">En stock</div><div class="kpi-val" style="font-size:20px">${prods.filter(p=>Number(p.stock)>0).length}</div></div></div>
+        <div class="kpi-main-card" style="border-left:3px solid var(--blue);cursor:pointer" onclick="goTo('inventario',document.querySelector('[onclick*=inventario]'))"><div class="kpi-icon" style="background:var(--blue-bg);color:var(--blue)">📦</div><div><div class="kpi-label">En stock</div><div class="kpi-val" style="font-size:20px">${prods.filter(p=>Number(p.stock)>0).length}</div></div></div>
         <div class="kpi-main-card" style="border-left:3px solid ${bajo>0?'var(--red)':'var(--green)'};cursor:pointer" onclick="toggleDashPanel('panel-bajo')"><div class="kpi-icon" style="background:${bajo>0?'var(--red-bg)':'var(--green-bg)'};color:${bajo>0?'var(--red)':'var(--green)'}">📉</div><div><div class="kpi-label">Stock bajo</div><div class="kpi-val" style="color:${bajo>0?'var(--red)':'var(--green)'};font-size:20px">${bajo}</div></div></div>
         <div class="kpi-main-card" style="border-left:3px solid ${cad>0?'var(--amber)':'var(--green)'};cursor:pointer" onclick="toggleDashPanel('panel-cad')"><div class="kpi-icon" style="background:${cad>0?'var(--amber-bg)':'var(--green-bg)'};color:${cad>0?'var(--amber)':'var(--green)'}">⏰</div><div><div class="kpi-label">Por caducar</div><div class="kpi-val" style="color:${cad>0?'var(--amber)':'var(--green)'};font-size:20px">${cad}</div></div></div>
         <div class="kpi-main-card" style="border-left:3px solid ${prodsCad0.length>0?'var(--red)':'var(--green)'};cursor:pointer" onclick="toggleDashPanel('panel-cad0')"><div class="kpi-icon" style="background:${prodsCad0.length>0?'var(--red-bg)':'var(--green-bg)'};color:${prodsCad0.length>0?'var(--red)':'var(--green)'}">🗑</div><div><div class="kpi-label">Caducados</div><div class="kpi-val" style="color:${prodsCad0.length>0?'var(--red)':'var(--green)'};font-size:20px">${prodsCad0.length}</div></div></div>

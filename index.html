@@ -122,12 +122,6 @@
           <button class="btn btn-sm" onclick="refrescarDashboard(this)" title="Actualizar">↻ Actualizar</button>
         </div>
       </div>
-      <div class="metrics">
-        <div class="metric-card"><div class="metric-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div class="metric-body"><div class="metric-val" id="m-prod">—</div><div class="metric-label">Productos</div></div></div>
-        <div class="metric-card"><div class="metric-icon red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="metric-body"><div class="metric-val" id="m-bajo">—</div><div class="metric-label">Stock bajo</div></div></div>
-        <div class="metric-card"><div class="metric-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="metric-body"><div class="metric-val" id="m-cad">—</div><div class="metric-label">Por caducar</div></div></div>
-        <div class="metric-card"><div class="metric-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div><div class="metric-body"><div class="metric-val" id="m-ped">—</div><div class="metric-label">Pedidos activos</div></div></div>
-      </div>
       <div id="sync-pending" class="sync-banner hidden">⚠ <span id="sync-count">0</span> movimientos offline. <button class="btn btn-sm" onclick="sincronizarOffline()">Sincronizar</button></div>
       <!-- KPIs rápidos en dashboard -->
       <div id="dash-kpis-quick" style="margin-bottom:10px"></div>
@@ -396,7 +390,7 @@
 
     <!-- MOVIMIENTOS -->
     <section id="tab-movimientos" class="tab hidden">
-      <div class="page-header"><div class="page-title">Movimientos</div></div>
+      <div class="page-header"><div class="page-title">Movimientos</div><button class="btn btn-sm" onclick="cargarMovimientos()" title="Actualizar">↻ Actualizar</button></div>
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <select class="input" style="flex:1;min-width:120px" id="fil-tipo" onchange="filtrarMov()"><option value="">Todos</option><option value="entrada">Entradas</option><option value="salida">Salidas</option><option value="ajuste">Ajustes</option></select>
@@ -533,7 +527,7 @@
 
     <!-- PROVEEDORES -->
     <section id="tab-proveedores" class="tab hidden">
-      <div class="page-header"><div class="page-title">Proveedores</div></div>
+      <div class="page-header"><div class="page-title">Proveedores</div><button class="btn btn-sm" onclick="cargarProveedores()" title="Actualizar">↻ Actualizar</button></div>
       <div id="modal-evaluar" class="modal-overlay hidden">
         <div class="modal-card" style="max-width:420px">
           <div class="modal-title">⭐ Evaluar proveedor</div>
@@ -563,7 +557,7 @@
 
     <!-- ALMACENES -->
     <section id="tab-almacenes" class="tab hidden">
-      <div class="page-header"><div class="page-title">Almacenes</div></div>
+      <div class="page-header"><div class="page-title">Almacenes</div><button class="btn btn-sm" onclick="cargarAlmacenes()" title="Actualizar">↻ Actualizar</button></div>
       <div class="card"><div class="card-header">Almacenes registrados</div><div id="alm-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="document.getElementById('form-almacen').classList.remove('hidden')">+ Nuevo almacén</button></div>
       <div id="form-almacen" class="card hidden">
         <div class="card-header">Nuevo almacén</div>
@@ -576,7 +570,7 @@
 
     <!-- USUARIOS -->
     <section id="tab-usuarios" class="tab hidden">
-      <div class="page-header"><div class="page-title">Usuarios</div></div>
+      <div class="page-header"><div class="page-title">Usuarios</div><button class="btn btn-sm" onclick="cargarUsuarios()" title="Actualizar">↻ Actualizar</button></div>
       <div class="card"><div id="users-lista"><div class="loading">Cargando...</div></div><button class="btn btn-primary btn-full" style="margin-top:12px" onclick="mostrarFormUsuario()">+ Agregar usuario</button></div>
       <div id="form-usuario" class="card hidden">
         <div class="card-header">Nuevo usuario</div>
@@ -589,7 +583,7 @@
 
     <!-- AUDITORÍA -->
     <section id="tab-auditoria" class="tab hidden">
-      <div class="page-header"><div class="page-title">Auditoría</div></div>
+      <div class="page-header"><div class="page-title">Auditoría</div><button class="btn btn-sm" onclick="cargarAuditoria()" title="Actualizar">↻ Actualizar</button></div>
       <div class="card">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
           <select class="input" style="flex:1;min-width:130px" id="aud-tipo" onchange="filtrarAuditoria()"><option value="">Todos</option><option value="login">Inicios de sesión</option><option value="rol_cambio">Cambios de rol</option><option value="producto_nuevo">Productos nuevos</option><option value="movimiento">Movimientos</option><option value="ajuste">Ajustes</option></select>
@@ -677,7 +671,7 @@
 
     <!-- ALERTAS -->
     <section id="tab-alertas" class="tab hidden">
-      <div class="page-header"><div class="page-title">Alertas</div></div>
+      <div class="page-header"><div class="page-title">Alertas</div><button class="btn btn-sm" onclick="cargarAlertas()" title="Actualizar">↻ Actualizar</button></div>
       <div class="card"><div id="alertas-lista"><div class="loading">Cargando...</div></div></div>
     </section>
 
