@@ -28,11 +28,14 @@ function renderSelectorAlmacen(alms) {
 async function cambiarAlmacen(id) {
   const alms = await API.getAlmacenes();
   almacenActivo = alms.find(a => a.id === id) || alms[0];
+  renderSelectorAlmacen(alms);        // refresca el selector si hay almacenes nuevos
+  todosProductos = [];                // el cache era del almacen anterior
   toast('Almacén: ' + almacenActivo.nombre);
-  // Recargar pestaña activa
-  const tabActivo = document.querySelector('.tab.active')?.id?.replace('tab-','');
-  if (tabActivo === 'inventario') cargarInventario();
-  if (tabActivo === 'dashboard') cargarDashboard();
+  // BUG CORREGIDO: antes buscaba '.tab.active', pero goTo() nunca pone esa
+  // clase en las secciones (usa 'hidden'), asi que solo el dashboard la traia
+  // desde el HTML inicial. El resultado: cambiar de almacen nunca recargaba
+  // el inventario y habia que actualizar a mano.
+  recargarTabVisible();
 }
 
 async function cargarAlmacenes() {

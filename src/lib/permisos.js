@@ -16,6 +16,8 @@ const MODULOS = [
   { key:'movimientos',     label:'Ver movimientos',         desc:'Historial de entradas y salidas' },
   { key:'reportes',        label:'Reportes',                desc:'Exportar Excel y PDF' },
   { key:'pedidos',         label:'Gestión de pedidos',      desc:'Crear y seguir pedidos a proveedores' },
+  { key:'compras',         label:'Compras',                 desc:'Registrar compras y recibirlas en almacén' },
+  { key:'compras_pagos',   label:'Saldos y pagos',          desc:'Ver deuda con proveedores y registrar pagos' },
   { key:'proveedores',     label:'Proveedores',             desc:'Directorio y evaluaciones' },
   { key:'alertas',         label:'Ver alertas',             desc:'Stock bajo y caducidades' },
   { key:'notificaciones',  label:'Notificaciones',          desc:'Configurar reportes automáticos' },
@@ -34,7 +36,7 @@ const PERMISOS_VACIOS = Object.fromEntries(MODULOS.map(m => [m.key, false]));
 const PLANTILLAS = {
   'Solo consulta':    { dashboard:true, inventario:true, movimientos:true, alertas:true },
   'Operador básico':  { dashboard:true, entradas:true, salidas:true, scanner:true, inventario:true, alertas:true },
-  'Supervisor':       { dashboard:true, entradas:true, salidas:true, scanner:true, inventario:true, inventario_edit:true, movimientos:true, pedidos:true, proveedores:true, alertas:true, conteo:true, reportes:true },
+  'Supervisor':       { dashboard:true, entradas:true, salidas:true, scanner:true, inventario:true, inventario_edit:true, movimientos:true, pedidos:true, proveedores:true, alertas:true, conteo:true, reportes:true, compras:true },
   'Acceso total':     Object.fromEntries(MODULOS.map(m => [m.key, true])),
 };
 

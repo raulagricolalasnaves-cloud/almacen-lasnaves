@@ -183,6 +183,20 @@ function aplicarPermisosTabs(rol) {
 }
 
 // ── NAVEGACIÓN ────────────────────────────────────────
+// TAB_LOADERS vive fuera de goTo para que otras partes del sistema
+// (cambiar de almacén, por ejemplo) puedan recargar la pestaña visible.
+let TAB_LOADERS = {};
+
+// Devuelve la pestaña realmente visible. No usar '.tab.active': esa clase
+// solo la trae el dashboard desde el HTML inicial y nunca se mueve.
+function tabVisible() {
+  return document.querySelector('.tab:not(.hidden)')?.id?.replace('tab-', '') || null;
+}
+function recargarTabVisible() {
+  const t = tabVisible();
+  if (t && TAB_LOADERS[t]) TAB_LOADERS[t]();
+}
+
 function goTo(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -197,7 +211,7 @@ function goTo(tab, btn) {
   if (typeof stopScannerSal === 'function') stopScannerSal();
   const loaders = {
     dashboard: cargarDashboardUnificado, inventario: cargarInventario,
-    movimientos: cargarMovimientos, pedidos: cargarPedidos,
+    movimientos: cargarMovimientos, pedidos: cargarPedidos, compras: cargarCompras,
     usuarios: cargarUsuarios, alertas: cargarAlertas,
     auditoria: cargarAuditoria, proveedores: cargarProveedores,
     almacenes: cargarAlmacenes, dir: cargarDashboardDir,
@@ -210,6 +224,7 @@ function goTo(tab, btn) {
     notificaciones: cargarNotificaciones,
     respaldo: () => {},
   };
+  TAB_LOADERS = loaders;
   loaders[tab]?.();
 }
 
@@ -275,7 +290,99 @@ async function buscarProductoEntrada(q) {
         <div class="search-result-name">${p.nombre} ${p.peligrosidad?`<span style="color:var(--red);font-size:11px">⚠ ${p.peligrosidad}</span>`:''}</div>
         <div class="search-result-meta">${p.id} · Stock: ${p.stock} ${p.unidad||''}${p.ubicacion?' · 📍 '+p.ubicacion:''}</div>
       </div>`).join('')
-    : '<div class="empty" style="padding:12px">Sin resultados</div>';
+    : `<div class="empty" style="padding:14px;text-align:center">
+         <div style="margin-bottom:10px">No hay ningún producto que coincida con «${q}»</div>
+         <button class="btn btn-sm btn-primary" onclick="altaRapida('${q.replace(/'/g,"\\'")}')">
+           + Dar de alta «${q}» y seguir
+         </button>
+       </div>`;
+}
+
+// ── ALTA RÁPIDA DESDE LA ENTRADA ──────────────────────
+// Antes había que salirse a Inventario, bajar hasta el botón del final,
+// crear el producto y volver a empezar la entrada. Ahora se da de alta
+// aquí mismo con lo mínimo y el producto entra al carrito solo.
+function altaRapida(nombre) {
+  if (!tienePermiso('inventario_edit') && currentProfile?.rol !== 'admin') {
+    toast('No tienes permiso para dar de alta productos'); return;
+  }
+  const cont = document.getElementById('ent-resultados');
+  cont.innerHTML = `
+    <div class="card" style="padding:14px;border:1px solid var(--border);border-radius:var(--radius)">
+      <div style="font-weight:600;margin-bottom:10px">Producto nuevo</div>
+      <div class="form-group"><label>Nombre *</label>
+        <input class="input" id="ar-nombre" value="${(nombre||'').replace(/"/g,'&quot;')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Unidad base *</label>
+          <select class="input" id="ar-unidad">
+            <option>Lts</option><option>Kg</option><option>gr</option>
+            <option>Pza</option><option>Caja</option><option>Rollo</option>
+            <option>Par</option><option>Bulto</option><option>Metro</option>
+          </select></div>
+        <div class="form-group"><label>Categoría</label>
+          <input class="input" id="ar-cat" list="ar-cats" placeholder="Herbicida, Fertilizante…">
+          <datalist id="ar-cats">
+            <option>Herbicida</option><option>Insecticida</option><option>Fungicida</option>
+            <option>Acaricida</option><option>Fertilizante</option><option>Bioestimulante</option>
+            <option>Coadyuvante</option><option>EPP</option><option>Limpieza</option>
+            <option>Ferreteria/Consumible</option><option>Material electrico</option>
+            <option>Material hidraulico</option><option>Papeleria</option><option>Por clasificar</option>
+          </datalist></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Ingrediente activo</label>
+          <input class="input" id="ar-ia" placeholder="Opcional"></div>
+        <div class="form-group"><label>Peligrosidad</label>
+          <select class="input" id="ar-pel">
+            <option value="">Sin clasificar</option><option value="alto">Alto</option>
+            <option value="medio">Medio</option><option value="bajo">Bajo</option>
+            <option value="ninguno">Ninguno</option>
+          </select></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn btn-sm btn-primary" onclick="guardarAltaRapida()">Crear y agregar a la entrada</button>
+        <button class="btn btn-sm" onclick="document.getElementById('ent-resultados').innerHTML=''">Cancelar</button>
+      </div>
+      <div style="font-size:11px;opacity:.7;margin-top:8px">
+        Entra con stock 0 en «${(typeof almacenActivo!=='undefined' && almacenActivo?.nombre) || 'este almacén'}».
+        La cantidad la pones en el renglón de la entrada.
+      </div>
+    </div>`;
+  document.getElementById('ar-nombre')?.focus();
+}
+
+async function guardarAltaRapida() {
+  const nombre = document.getElementById('ar-nombre')?.value.trim();
+  if (!nombre) { toast('El nombre es obligatorio'); return; }
+  // clave nueva sin chocar con las existentes
+  if (!todosProductos.length) todosProductos = await API.getProductos(almacenActivo?.id);
+  const { data: todos } = await db.from('productos').select('id');
+  let max = 0;
+  (todos || []).forEach(p => {
+    const m = /^PRD-(\d+)$/.exec(p.id); if (m) max = Math.max(max, +m[1]);
+  });
+  const id = 'PRD-' + String(max + 1).padStart(3, '0');
+  const prod = {
+    id, nombre, stock: 0, min: 0,
+    unidad:             document.getElementById('ar-unidad').value,
+    categoria:          document.getElementById('ar-cat').value.trim() || 'Por clasificar',
+    ingrediente_activo: document.getElementById('ar-ia').value.trim() || null,
+    peligrosidad:       document.getElementById('ar-pel').value || null,
+    almacen_id:         almacenActivo?.id || null,
+    activo:             true,
+    origen_dato:        'alta desde entrada',
+  };
+  try {
+    await API.addProducto(prod);
+    await API.addAuditoria({ tipo:'producto_nuevo',
+      descripcion:`Alta rápida desde entrada: ${nombre} (${id})`,
+      usuario_id: currentUser?.id, usuario_nombre: currentProfile?.nombre || currentUser?.email });
+    todosProductos = [];
+    document.getElementById('ent-resultados').innerHTML = '';
+    document.getElementById('ent-buscar').value = '';
+    toast(`✓ ${nombre} creado como ${id}`);
+    await agregarAlCarritoEntrada(id);
+  } catch (e) { toast('Error al crear: ' + e.message); }
 }
 
 
@@ -562,10 +669,12 @@ function filtrarMov(){const tipo=document.getElementById('fil-tipo').value;const
 
 function renderMovItem(m){
   const signo=m.tipo==='entrada'?'+':'−';const fecha=m.created_at?new Date(m.created_at).toLocaleString('es-MX'):'—';const color=m.tipo==='entrada'?'entrada':'salida';
-  const fotoHtml=m.foto_evidencia?`<div class="mov-foto"><a href="#" onclick="event.stopPropagation();verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale'}</a></div>`:'';
+  const fotoHtml=(m.foto_evidencia?`<a href="#" onclick="event.stopPropagation();verFoto('${m.foto_evidencia}');return false;">📎 Ver ${m.tipo==='entrada'?'recibo':'vale'}</a>`:'')
+    +(m.tipo==='salida'?`${m.foto_evidencia?' · ':''}<a href="#" onclick="event.stopPropagation();reimprimirVale('${m.id}');return false;">🖨 Imprimir vale</a>`:'');
+  const fotoWrap=fotoHtml?`<div class="mov-foto">${fotoWrap}</div>`:'';
   const esAdmin=currentProfile?.rol==='admin';
   const deleteBtn=esAdmin?`<button class="btn btn-sm" style="color:var(--red);padding:2px 6px;font-size:11px;margin-top:4px" onclick="event.stopPropagation();eliminarMovimiento('${m.id}','${(m.nombre||'').replace(/'/g,"\\'")}')">🗑 Eliminar</button>`:'';
-  return`<div class="mov-item" style="cursor:pointer" onclick="verDetalleMovimiento('${m.id}')"><div class="mov-dot ${color}">${m.tipo==='entrada'?'↓':m.tipo==='ajuste'?'⚙':'↑'}</div><div class="mov-body"><div class="mov-name">${m.nombre}</div><div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>${fotoHtml}${deleteBtn}</div><div class="mov-qty ${color}">${m.tipo==='ajuste'?'':signo}${m.cantidad} ${m.unidad||''}</div></div>`;
+  return`<div class="mov-item" style="cursor:pointer" onclick="verDetalleMovimiento('${m.id}')"><div class="mov-dot ${color}">${m.tipo==='entrada'?'↓':m.tipo==='ajuste'?'⚙':'↑'}</div><div class="mov-body"><div class="mov-name">${m.nombre}</div><div class="mov-meta">${fecha} · ${m.usuario_nombre||'—'}${m.destino?' · '+m.destino:''}</div>${fotoWrap}${deleteBtn}</div><div class="mov-qty ${color}">${m.tipo==='ajuste'?'':signo}${m.cantidad} ${m.unidad||''}</div></div>`;
 }
 
 function verFoto(url){const modal=document.getElementById('foto-modal');const img=document.getElementById('foto-modal-img');if(!modal||!img)return;img.src=url;modal.classList.remove('hidden');}
@@ -740,9 +849,76 @@ function filtrarAuditoria(){const tipo=document.getElementById('aud-tipo').value
 
 // ── ALERTAS ───────────────────────────────────────────
 async function cargarAlertas(){
-  document.getElementById('alertas-lista').innerHTML='<div class="loading">Cargando...</div>';
-  try{const prods=await API.getProductos(almacenActivo?.id);const hoy=new Date();const alertas=[];prods.forEach(p=>{if(Number(p.stock)<=Number(p.min))alertas.push({tipo:'danger',icon:'⚠',nombre:p.nombre,detalle:`Stock bajo: ${p.stock} ${p.unidad||''} (mínimo: ${p.min})`});if(p.caducidad){const dias=Math.floor((new Date(p.caducidad)-hoy)/86400000);if(dias<90)alertas.push({tipo:'warn',icon:'⏰',nombre:p.nombre,detalle:`Caduca en ${dias} días (${p.caducidad})`});}});document.getElementById('alertas-lista').innerHTML=alertas.length?alertas.map(a=>`<div class="alert-item"><div class="alert-icon ${a.tipo}">${a.icon}</div><div><div class="alert-name">${a.nombre}</div><div class="alert-detail">${a.detalle}</div></div></div>`).join(''):'<div class="empty">✓ Sin alertas activas</div>';}
-  catch{document.getElementById('alertas-lista').innerHTML='<div class="empty">Error</div>';}
+  const el=document.getElementById('alertas-lista');
+  el.innerHTML='<div class="loading">Cargando...</div>';
+  try{
+    // Se usan las vistas del ERP en vez de calcular en el navegador, porque
+    // distinguen lo que de verdad falta de lo que nunca se conto. Un producto
+    // que nadie conto tiene stock 0 por falta de dato, no por faltante: si se
+    // mezclan, la pantalla se llena de alertas falsas y se dejan de leer todas.
+    const [alertas, porContar, caducando] = await Promise.all([
+      db.from('v_alertas_stock').select('*').order('nivel'),
+      db.from('v_por_contar').select('*').order('consumo_mensual',{ascending:false}),
+      db.from('productos').select('id,nombre,unidad,stock,caducidad,ubicacion,peligrosidad')
+        .eq('activo',true).gt('stock',0).not('caducidad','is',null)
+        .lte('caducidad', new Date(Date.now()+90*86400000).toISOString().slice(0,10))
+        .order('caducidad'),
+    ]);
+    if (alertas.error || porContar.error) throw (alertas.error || porContar.error);
+
+    const A=alertas.data||[], PC=porContar.data||[], CAD=caducando.data||[];
+    const hoy=new Date().toISOString().slice(0,10);
+    const vencidos=CAD.filter(p=>p.caducidad<hoy);
+    const proximos=CAD.filter(p=>p.caducidad>=hoy);
+    const mx=n=>'$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const secc=(t,n,sub)=>`<div style="margin:18px 0 8px;display:flex;align-items:baseline;gap:8px">
+        <b style="font-size:14px">${t}</b><span class="badge">${n}</span>
+        ${sub?`<span style="font-size:12px;opacity:.65">${sub}</span>`:''}</div>`;
+    let h='';
+
+    if(A.length){
+      const costo=A.reduce((s,x)=>s+Number(x.costo_reponer||0),0);
+      h+=secc('Hay que reponer', A.length, costo>0?`reponer al mínimo cuesta ${mx(costo)} en lo que tiene costo`:'');
+      h+=A.map(a=>`<div class="alert-item">
+        <div class="alert-icon ${a.nivel==='Agotado'?'danger':'warn'}">${a.nivel==='Agotado'?'⚠':'▼'}</div>
+        <div><div class="alert-name">${a.nombre}
+          ${a.peligrosidad==='alto'?'<span style="color:var(--red);font-size:11px"> ⚠ riesgo alto</span>':''}</div>
+          <div class="alert-detail">Hay ${a.stock} ${a.unidad||''} · mínimo ${a.minimo}
+            · faltan ${Math.abs(a.faltante)}${a.ubicacion?' · 📍 '+a.ubicacion:''}
+            ${a.costo_reponer>0?' · reponer '+mx(a.costo_reponer):''}</div></div></div>`).join('');
+    }
+
+    if(vencidos.length){
+      h+=secc('Vencidos con existencia', vencidos.length, 'no deben surtirse');
+      h+=vencidos.map(p=>`<div class="alert-item">
+        <div class="alert-icon danger">⏰</div>
+        <div><div class="alert-name">${p.nombre}</div>
+          <div class="alert-detail">Venció el ${p.caducidad} · quedan ${p.stock} ${p.unidad||''}${p.ubicacion?' · 📍 '+p.ubicacion:''}</div></div></div>`).join('');
+    }
+
+    if(proximos.length){
+      h+=secc('Caducan en menos de 90 días', proximos.length);
+      h+=proximos.map(p=>`<div class="alert-item">
+        <div class="alert-icon warn">⏰</div>
+        <div><div class="alert-name">${p.nombre}</div>
+          <div class="alert-detail">Caduca el ${p.caducidad} · quedan ${p.stock} ${p.unidad||''}</div></div></div>`).join('');
+    }
+
+    if(PC.length){
+      h+=secc('Por contar', PC.length, 'se consumen pero nunca se contaron: su cero es falta de dato, no faltante');
+      h+=PC.map(p=>`<div class="alert-item">
+        <div class="alert-icon">📋</div>
+        <div><div class="alert-name">${p.nombre}</div>
+          <div class="alert-detail">Consumo ${p.consumo_mensual} ${p.unidad||''} al mes · ${p.salidas_historicas} salidas registradas${p.ubicacion?' · 📍 '+p.ubicacion:''}</div></div></div>`).join('');
+    }
+
+    el.innerHTML = h || '<div class="empty">✓ Sin alertas activas</div>';
+    const c=document.getElementById('alert-count');
+    if(c){ const n=A.length+vencidos.length; c.textContent=n; c.classList.toggle('hidden', n===0); }
+  }catch(e){
+    el.innerHTML=`<div class="empty">Error al cargar alertas: ${e.message}<br>
+      <span style="font-size:11px">Si dice que no existe v_alertas_stock, falta correr 14_stock_minimo.sql en Supabase.</span></div>`;
+  }
 }
 
 // ── TOAST ─────────────────────────────────────────────
