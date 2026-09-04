@@ -47,8 +47,13 @@ const APIC = {
     return Array.isArray(data) ? data[0] : data;
   },
   async getPresentaciones(productoId) {
+    // Solo las activas. Una presentacion apagada (por ejemplo el "LTO" de
+    // Formu 8-24-0, que unas veces fue litro y otras garrafa de 20 L)
+    // sigue existiendo para poder leer las compras viejas, pero no se
+    // ofrece al capturar una entrada nueva: ahi es donde causa el error.
     const { data, error } = await db.from('presentaciones').select('*')
-      .eq('producto_id', productoId).order('factor');
+      .eq('producto_id', productoId).or('activa.is.null,activa.eq.true')
+      .order('factor');
     if (error) throw error;
     return data || [];
   },
@@ -299,6 +304,19 @@ async function guardarCompra() {
   if (!provId)  { toast('Elige el proveedor'); return; }
   if (!lineasNuevas.length) { toast('Agrega al menos un renglón'); return; }
 
+  // Una compra en moneda extranjera SIN tipo de cambio es exactamente la
+  // causa del error historico que corrige el script 15: los dolares se
+  // guardaron como si fueran pesos y el costo quedo 17 veces por debajo.
+  // La base ya lo rechaza por constraint; aqui lo avisamos con lenguaje
+  // claro antes de que reviente con un error de Postgres.
+  const moneda = document.getElementById('cmp-moneda').value;
+  const tc     = parseFloat(document.getElementById('cmp-tc').value) || null;
+  if (moneda !== 'MXN' && !tc) {
+    toast('Falta el tipo de cambio: una compra en ' + moneda + ' no se puede guardar sin él.');
+    document.getElementById('cmp-tc').focus();
+    return;
+  }
+
   const dias  = parseInt(document.getElementById('cmp-dias').value) || null;
   const fecha = document.getElementById('cmp-fecha').value || null;
   let vence = null;
@@ -317,8 +335,8 @@ async function guardarCompra() {
       factura: factura || null,
       fecha_compra: fecha,
       almacen_id: almacenActivo?.id || null,
-      moneda: document.getElementById('cmp-moneda').value,
-      tipo_cambio: parseFloat(document.getElementById('cmp-tc').value) || null,
+      moneda: moneda,
+      tipo_cambio: tc,
       total: total || null,
       condiciones_pago: document.getElementById('cmp-cond').value.trim() || null,
       dias_credito: dias,
