@@ -1,0 +1,602 @@
+/* ═══════════════════════════════════════════════════════════════════
+   tema.css — Las Naves Agrícola · rediseño de septiembre 2026
+
+   Va DESPUÉS de main.css. No lo reemplaza: lo redefine.
+
+   Por qué así y no un archivo nuevo desde cero: main.css tiene 230
+   clases repartidas en 15 pantallas, y muchas no se ven hasta que
+   alguien abre un formulario específico. Reescribirlas a ciegas era
+   apostar. En cambio main.css ya usa variables (--navy, --border,
+   --radius…) en casi todos lados, así que redefinir las variables
+   cambia la apariencia de todo el sistema sin tocar una sola regla.
+   Encima de eso, este archivo rehace a mano lo que se usa todos los
+   días: barra superior, navegación, tarjetas, botones, campos, tablas
+   y listas.
+
+   ── DECISIÓN DE COLOR QUE VALE LA PENA ENTENDER ──────────────────
+   Verde, amarillo, rojo y azul NO son colores libres en este sistema.
+   Son las cuatro bandas toxicológicas de la NOM-232-SSA1-2009, y
+   están impresas en la etiqueta de cada producto que el bodeguero
+   tiene en la mano. Si el ERP usa verde para "guardado con éxito" y
+   rojo para "error", esos colores compiten con un significado que ya
+   es ley y que la persona lee todo el día.
+
+   Por eso aquí las cuatro bandas viven en su propia familia de
+   variables y aparecen SIEMPRE en el mismo lugar: una franja de 4px
+   a la izquierda del renglón del producto, más una etiqueta que dice
+   el nombre de la banda. El resto de la interfaz — estados, avisos,
+   confirmaciones — usa OTRA FORMA: pastillas rellenas con texto.
+   La forma desambigua, no el color.
+
+   ── TIPOGRAFÍA ───────────────────────────────────────────────────
+   IBM Plex en tres papeles:
+     · Sans           — cuerpo e interfaz. Acentos y eñes bien hechos.
+     · Sans Condensed — navegación y encabezados. Tiene el aire de la
+                        rotulación de un almacén.
+     · Mono           — folios, claves de producto y columnas de
+                        cantidad y dinero. Los números alinean solos.
+
+   ── SIN MODO OSCURO, A PROPÓSITO ─────────────────────────────────
+   Las 230 clases de main.css tienen colores claros escritos a mano en
+   muchos lugares. Un modo oscuro a medias es peor que ninguno: texto
+   claro sobre fondo claro en las pantallas que no alcancé a revisar.
+   Cuando se rehaga main.css completo, se agrega bien.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+/* ── 1 · FICHAS DE DISEÑO ─────────────────────────────────────────
+   Redefinir estas variables es lo que repinta todo main.css. */
+:root {
+  /* Marca. El azul viene del logo, corregido a un tono que aguanta
+     texto blanco encima con contraste suficiente. */
+  --navy:        #163a6d;
+  --navy2:       #1f4d8c;
+  --navy-deep:   #101c31;
+  --navy-soft:   #e9eff7;
+
+  /* Neutros con sesgo hacia el azul de marca. Un gris puro se ve
+     accidental; uno inclinado hacia el acento se ve elegido. */
+  --bg:          #f4f6fa;
+  --surface:     #ffffff;
+  --surface-2:   #fafbfd;
+  --border:      #dde3ec;
+  --border-2:    #eef1f6;
+  --text:        #101c31;
+  --text2:       #4a5878;
+  --text3:       #8a96af;
+
+  /* Las cuatro bandas de la NOM-232. Reservadas. */
+  --nom-roja:      #c62828;
+  --nom-amarilla:  #e8a300;
+  --nom-azul:      #1565c0;
+  --nom-verde:     #2e7d32;
+  --nom-roja-bg:     #fdecec;
+  --nom-amarilla-bg: #fff6e2;
+  --nom-azul-bg:     #e8f1fb;
+  --nom-verde-bg:    #e9f4ea;
+
+  /* Estados de la interfaz. Se usan SOLO en pastillas rellenas,
+     nunca como franja lateral, para no chocar con las bandas. */
+  --green:    #2e7d32;
+  --green2:   #388e3c;
+  --green-bg: #e9f4ea;
+  --red:      #b3261e;
+  --red-bg:   #fdecec;
+  --amber:    #9a6700;
+  --amber-bg: #fff6e2;
+  --blue:     #1f4d8c;
+  --blue-bg:  #e9eff7;
+
+  --radius:    10px;
+  --radius-sm: 7px;
+  --radius-lg: 14px;
+
+  /* Elevación medida. Casi todo lleva borde, no sombra: la sombra se
+     gasta solo en lo que de verdad flota (modales, menús, toasts). */
+  --shadow:    0 1px 2px rgba(16,28,49,.05);
+  --shadow-md: 0 4px 12px rgba(16,28,49,.08), 0 1px 3px rgba(16,28,49,.06);
+  --shadow-lg: 0 18px 44px rgba(16,28,49,.18);
+
+  --sans:  'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --cond:  'IBM Plex Sans Condensed', 'IBM Plex Sans', -apple-system, sans-serif;
+  --mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --rail: 236px;   /* ancho del carril de navegación en escritorio */
+}
+
+/* ── 2 · BASE ─────────────────────────────────────────────────────── */
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Los números que se comparan en columna tienen que alinear. */
+.mono, .inv-stock, .mov-qty, .kpi-val, .metric-val, .conteo-fisico-val,
+.kpi-mini-val, .prom-val, .eval-score-val, .conteo-diff, .pc-num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+
+::selection { background: var(--navy-soft); color: var(--navy-deep); }
+
+/* Foco visible siempre. Se opera con teclado en la oficina. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--navy2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ── 3 · BARRA SUPERIOR ───────────────────────────────────────────── */
+.topbar {
+  background: var(--navy-deep);
+  padding: 0 18px;
+  height: 56px;
+  box-shadow: none;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.topbar-left { gap: 12px; }
+.topbar-logo {
+  width: 32px; height: 32px; border-radius: 7px;
+  background: #fff; padding: 3px;
+}
+.topbar-title {
+  font-family: var(--cond);
+  font-size: 15px; font-weight: 600; letter-spacing: .01em; color: #fff;
+}
+.topbar-sub {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: rgba(255,255,255,.5); font-weight: 500;
+}
+.topbar-right { gap: 12px; }
+.user-chip {
+  display: flex; align-items: center; gap: 9px;
+  padding: 4px 10px 4px 4px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+}
+.user-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--navy2); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; font-family: var(--cond);
+}
+.user-name { font-size: 12px; font-weight: 500; color: #fff; }
+.user-role {
+  font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase;
+  color: rgba(255,255,255,.55);
+}
+
+/* ── 4 · ALMACÉN ACTIVO ───────────────────────────────────────────
+   Se sube de categoría a propósito. Trabajar en el almacén
+   equivocado es el error más caro que permite esta app, y hasta hoy
+   el selector era una tira delgada que se confundía con el fondo. */
+.almacen-selector-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 18px;
+  display: flex; align-items: center; gap: 10px;
+  position: sticky; top: 56px; z-index: 19;
+}
+.almacen-selector-bar label {
+  font-family: var(--cond);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+}
+.almacen-selector-bar select {
+  width: auto; min-width: 190px;
+  background: var(--navy-soft);
+  color: var(--navy);
+  border: 1px solid #c8d6e9;
+  border-radius: var(--radius-sm);
+  padding: 6px 11px;
+  font-family: var(--cond);
+  font-size: 13px; font-weight: 600;
+}
+.almacen-selector-bar select:hover { background: #dde7f4; }
+.almacen-selector-bar select option { background: #fff; color: var(--text); font-weight: 400; }
+
+/* ── 5 · NAVEGACIÓN ───────────────────────────────────────────────
+   En teléfono: una tira que se desliza, como antes pero legible.
+   En escritorio: un carril fijo a la izquierda, agrupado por lo que
+   la persona está haciendo, no por orden alfabético. */
+.nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 10px;
+  gap: 2px;
+  top: 100px;
+}
+.nav-btn {
+  flex-direction: row; gap: 7px;
+  padding: 11px 12px 10px;
+  font-family: var(--cond);
+  font-size: 12.5px; font-weight: 500; letter-spacing: .01em;
+  color: var(--text2);
+  border-bottom: 2px solid transparent;
+  min-width: auto;
+  border-radius: 0;
+}
+.nav-btn svg { width: 16px; height: 16px; color: var(--text3); flex: none; }
+.nav-btn:hover { color: var(--navy); background: var(--surface-2); }
+.nav-btn:hover svg { color: var(--navy2); }
+.nav-btn.active {
+  color: var(--navy); font-weight: 600;
+  border-bottom-color: var(--navy2);
+  background: var(--navy-soft);
+}
+.nav-btn.active svg { color: var(--navy2); }
+
+/* Encabezado de grupo. En teléfono no se ve; en escritorio ordena. */
+.nav-group-title { display: none; }
+
+@media (min-width: 1024px) {
+  .topbar { padding-left: 18px; }
+
+  .almacen-selector-bar {
+    position: fixed;
+    top: 56px; left: 0; width: var(--rail);
+    z-index: 21;
+    flex-direction: column; align-items: stretch; gap: 6px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .almacen-selector-bar select { width: 100%; min-width: 0; }
+
+  .nav {
+    position: fixed;
+    top: 152px; left: 0; bottom: 0; width: var(--rail);
+    flex-direction: column;
+    overflow-y: auto; overflow-x: hidden;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    padding: 10px 10px 24px;
+    gap: 1px;
+    z-index: 20;
+  }
+  .nav-btn {
+    justify-content: flex-start;
+    width: 100%;
+    padding: 8px 11px;
+    border-bottom: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .nav-btn.active {
+    background: var(--navy-soft);
+    box-shadow: inset 3px 0 0 var(--navy2);
+  }
+  .nav-group-title {
+    display: block;
+    font-family: var(--cond);
+    font-size: 10px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text3);
+    padding: 16px 11px 5px;
+  }
+  .nav-group-title:first-child { padding-top: 4px; }
+
+  .main {
+    margin-left: var(--rail);
+    padding: 22px 28px 60px;
+    max-width: 1180px;
+    gap: 16px;
+  }
+}
+@media (min-width: 1500px) {
+  .main { margin-left: calc(var(--rail) + 40px); }
+}
+
+/* ── 6 · CONTENIDO ────────────────────────────────────────────────── */
+.main { padding: 16px 14px 48px; gap: 14px; }
+
+.page-header {
+  align-items: baseline;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.page-title {
+  font-family: var(--cond);
+  font-size: 22px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--navy-deep);
+  text-wrap: balance;
+}
+.page-date { font-size: 12px; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+/* No todo es una tarjeta. Borde para separar, sombra solo si flota. */
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+.card-header, .card-title {
+  font-family: var(--cond);
+  font-size: 13px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text2);
+  padding-bottom: 10px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-2);
+}
+
+/* ── 7 · BOTONES ──────────────────────────────────────────────────── */
+.btn {
+  font-family: var(--sans);
+  font-size: 13px; font-weight: 500;
+  padding: 9px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: background .13s, border-color .13s, box-shadow .13s;
+}
+.btn:hover { background: var(--surface-2); border-color: #cbd4e2; }
+.btn:active { transform: none; background: var(--border-2); }
+.btn-primary { background: var(--navy); border-color: var(--navy); font-weight: 500; }
+.btn-primary:hover { background: var(--navy2); border-color: var(--navy2); }
+.btn-green { background: var(--green); border-color: var(--green); }
+.btn-green:hover { background: var(--green2); border-color: var(--green2); }
+.btn-sm { padding: 5px 11px; font-size: 12px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Sub-pestañas: pastillas, no botones. Son un filtro, no una acción. */
+.subtab, .movstock-tab {
+  font-family: var(--cond);
+  font-size: 12.5px; font-weight: 600; letter-spacing: .02em;
+  border-radius: 999px; padding: 6px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text2);
+}
+.subtab:hover, .movstock-tab:hover { background: var(--surface-2); color: var(--navy); }
+.subtab.active, .movstock-tab.active {
+  background: var(--navy); color: #fff; border-color: var(--navy);
+}
+.movstock-tabs { gap: 7px; border-bottom: none; }
+
+/* ── 8 · CAMPOS ───────────────────────────────────────────────────── */
+.input, select, textarea {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: border-color .13s, box-shadow .13s;
+}
+.input::placeholder, textarea::placeholder { color: var(--text3); }
+.input:hover, select:hover, textarea:hover { border-color: #c8d2e2; }
+.input:focus, select:focus, textarea:focus {
+  border-color: var(--navy2);
+  box-shadow: 0 0 0 3px rgba(31,77,140,.12);
+  outline: none;
+}
+.form-group label {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+  color: var(--text2); margin-bottom: 5px; display: block;
+}
+.form-row { gap: 12px; }
+
+/* ── 9 · PASTILLAS DE ESTADO ──────────────────────────────────────
+   Rellenas y con texto. Nunca franja lateral: esa forma pertenece a
+   la banda toxicológica. */
+.badge {
+  font-family: var(--cond);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px;
+  border: 1px solid transparent;
+}
+.badge-ok     { background: var(--green-bg); color: var(--green); border-color: #c8e2ca; }
+.badge-warn   { background: var(--amber-bg); color: var(--amber); border-color: #f0dcaa; }
+.badge-danger { background: var(--red-bg);   color: var(--red);   border-color: #f2cbc8; }
+.badge-info   { background: var(--blue-bg);  color: var(--blue);  border-color: #ccd9ec; }
+.badge-admin, .badge-supervisor, .badge-operador { font-family: var(--cond); letter-spacing: .05em; }
+
+/* ── 10 · BANDA TOXICOLÓGICA (NOM-232-SSA1-2009) ──────────────────
+   Sistema visual propio. Franja de 4px a la izquierda, siempre en el
+   mismo lugar, más una etiqueta con el nombre de la banda. Es lo que
+   el bodeguero ya lee en la etiqueta física del envase. */
+.nom { position: relative; padding-left: 14px; }
+.nom::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 4px; border-radius: 2px; background: var(--text3);
+}
+.nom-roja::before     { background: var(--nom-roja); }
+.nom-amarilla::before { background: var(--nom-amarilla); }
+.nom-azul::before     { background: var(--nom-azul); }
+.nom-verde::before    { background: var(--nom-verde); }
+
+.nom-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--cond); font-size: 10.5px; font-weight: 600;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 8px 2px 6px; border-radius: 4px;
+}
+.nom-chip::before { content: ''; width: 8px; height: 8px; border-radius: 2px; }
+.nom-chip.roja     { background: var(--nom-roja-bg);     color: var(--nom-roja); }
+.nom-chip.amarilla { background: var(--nom-amarilla-bg); color: #8a6100; }
+.nom-chip.azul     { background: var(--nom-azul-bg);     color: var(--nom-azul); }
+.nom-chip.verde    { background: var(--nom-verde-bg);    color: var(--nom-verde); }
+.nom-chip.roja::before     { background: var(--nom-roja); }
+.nom-chip.amarilla::before { background: var(--nom-amarilla); }
+.nom-chip.azul::before     { background: var(--nom-azul); }
+.nom-chip.verde::before    { background: var(--nom-verde); }
+
+/* ── 11 · LISTAS DE RENGLONES ─────────────────────────────────────
+   Inventario, movimientos, alertas, conteo, proveedores. Es donde se
+   pasa el día. Mismo borde, mismo aire, el dato importante siempre
+   en el mismo lugar. */
+.inv-item, .mov-item, .alert-item, .conteo-item, .conteo-fila,
+.pedido-item, .user-item, .aud-item, .rev-item, .dash-panel-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 11px 13px;
+  transition: border-color .13s, background .13s;
+}
+.inv-item:hover, .mov-item:hover, .pedido-item:hover,
+.user-item:hover, .conteo-fila:hover {
+  border-color: #c6d2e4; background: var(--surface-2);
+}
+.inv-name, .mov-name, .pedido-name, .conteo-nombre, .alert-name, .prov-name {
+  font-size: 13.5px; font-weight: 600; color: var(--navy-deep);
+}
+.inv-sub, .mov-meta, .pedido-meta, .conteo-sub, .alert-detail, .aud-meta {
+  font-size: 11.5px; color: var(--text2);
+}
+.inv-ubicacion { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.inv-stock, .mov-qty { font-size: 14px; font-weight: 600; }
+
+/* ── 12 · TABLAS ──────────────────────────────────────────────────── */
+.rep-table, .kpi-table, table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.rep-table th, .kpi-table th, table th {
+  font-family: var(--cond);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text2);
+  text-align: left; padding: 8px 10px;
+  border-bottom: 1.5px solid var(--border);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.rep-table td, .kpi-table td, table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border-2);
+  vertical-align: top;
+}
+.rep-table tr:hover td, .kpi-table tr:hover td { background: var(--surface-2); }
+.rep-table td:not(:first-child), .kpi-table td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+}
+/* Ninguna tabla ancha empuja la página de lado. */
+.card > table, .card > .rep-table, .card > .kpi-table,
+.tabla-scroll { display: block; overflow-x: auto; max-width: 100%; }
+
+/* ── 13 · MÉTRICAS ────────────────────────────────────────────────
+   Los números grandes se ganan su tamaño solo cuando son el punto de
+   la pantalla. Aquí sí lo son: el dashboard existe para eso. */
+.metric-card, .kpi-main-card, .kpi-mini {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.metric-val, .kpi-val {
+  font-family: var(--mono);
+  font-size: 24px; font-weight: 600; letter-spacing: -.02em;
+  color: var(--navy-deep);
+}
+.metric-label, .kpi-label, .kpi-mini-label {
+  font-family: var(--cond);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--text3);
+}
+.kpi-section-title, .dash-panel-title {
+  font-family: var(--cond);
+  font-size: 12px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text2);
+}
+
+/* ── 14 · MODALES, AVISOS, VACÍOS ─────────────────────────────────── */
+.modal-overlay { background: rgba(16,28,49,.55); backdrop-filter: blur(3px); }
+.modal-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+  padding: 22px;
+}
+.modal-title {
+  font-family: var(--cond);
+  font-size: 17px; font-weight: 600; color: var(--navy-deep);
+}
+.modal-sub { font-size: 12.5px; color: var(--text2); }
+
+.toast {
+  font-size: 13px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  background: var(--navy-deep); color: #fff;
+  padding: 11px 16px;
+}
+
+.loading, .empty {
+  font-size: 13px; color: var(--text3);
+  padding: 26px 14px; text-align: center;
+}
+.empty { border: 1px dashed var(--border); border-radius: var(--radius); background: var(--surface-2); }
+
+.hint { font-size: 11.5px; color: var(--text3); }
+
+/* ── 15 · LOGIN ───────────────────────────────────────────────────── */
+.login-card {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 64px rgba(16,28,49,.22);
+  border: 1px solid rgba(255,255,255,.6);
+  padding: 32px 28px;
+}
+.login-title {
+  font-family: var(--cond);
+  font-size: 25px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--navy-deep);
+}
+.login-sub { font-size: 12.5px; color: var(--text2); }
+.login-logo-wrap { margin-bottom: 6px; }
+
+/* ── 16 · DETALLES ────────────────────────────────────────────────── */
+.alert-dot {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  background: var(--red); color: #fff;
+  min-width: 17px; height: 17px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+}
+.offline-dot { color: var(--amber); }
+.offline-banner, .sync-banner {
+  font-size: 12px; border-radius: var(--radius-sm);
+  background: var(--amber-bg); color: var(--amber);
+  border: 1px solid #f0dcaa; padding: 9px 12px;
+}
+
+/* Claves de producto y folios: siempre en mono, para que se lean
+   igual en pantalla que en el papel del proveedor. */
+.folio, .clave-producto, .search-result-meta {
+  font-family: var(--mono); font-size: 11.5px; color: var(--text3);
+}
+
+/* ── 17 · IMPRESIÓN ───────────────────────────────────────────────── */
+@media print {
+  .topbar, .nav, .almacen-selector-bar, .btn, .subtab, .movstock-tabs { display: none !important; }
+  .main { margin: 0; padding: 0; max-width: none; }
+  .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+}
+
+/* ── 18 · TELÉFONO ────────────────────────────────────────────────
+   En pantalla chica el nombre y el rol del usuario se comen el ancho
+   de la barra sin aportar nada: quien la usa ya sabe quién es. Queda
+   la inicial, que basta para notar si alguien dejó la sesión abierta. */
+@media (max-width: 640px) {
+  .topbar { padding: 0 12px; }
+  .user-info { display: none; }
+  .user-chip { padding: 3px; border-radius: 999px; }
+  .topbar-title { font-size: 14px; }
+  .almacen-selector-bar { padding: 8px 12px; }
+  .almacen-selector-bar label { font-size: 9.5px; letter-spacing: .07em; }
+  .almacen-selector-bar select { flex: 1; min-width: 0; font-size: 12.5px; }
+  .page-title { font-size: 19px; }
+  .main { padding: 14px 12px 40px; }
+  .card { padding: 14px; }
+  /* Los renglones de lista se tocan con el dedo: área cómoda. */
+  .inv-item, .mov-item, .alert-item, .conteo-fila, .pedido-item { padding: 12px; }
+  .btn { padding: 10px 15px; }
+  .subtab, .movstock-tab { padding: 7px 13px; }
+}
