@@ -68,6 +68,7 @@
     <button class="nav-btn" onclick="goTo('conteo',this)" data-modulo="conteo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Conteo</button>
     <button class="nav-btn" onclick="goTo('movimientos',this)" data-modulo="movimientos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Movimientos</button>
     <button class="nav-btn" onclick="goTo('alertas',this)" data-modulo="alertas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alertas<span id="alert-count" class="alert-dot hidden">0</span></button>
+    <button class="nav-btn" onclick="goTo('evidencias',this)" data-modulo="movimientos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Evidencias</button>
     <div class="nav-group-title" data-grupo="Compras">Compras</div>
     <button class="nav-btn" onclick="goTo('pedidos',this)" data-modulo="pedidos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Pedidos</button>
     <button class="nav-btn" onclick="goTo('compras',this)" data-modulo="compras"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Compras</button>
@@ -760,6 +761,15 @@
     </section>
 
     <!-- ALERTAS -->
+    <!-- EVIDENCIAS -->
+    <section id="tab-evidencias" class="tab hidden">
+      <div class="page-header">
+        <div class="page-title">Evidencias</div>
+        <button class="btn btn-sm" onclick="cargarEvidencias()">↻ Actualizar</button>
+      </div>
+      <div id="ev-content"><div class="loading">Cargando…</div></div>
+    </section>
+
     <section id="tab-alertas" class="tab hidden">
       <div class="page-header"><div class="page-title">Alertas</div><button class="btn btn-sm" onclick="cargarAlertas()" title="Actualizar">↻ Actualizar</button></div>
       <div class="card"><div id="alertas-lista"><div class="loading">Cargando...</div></div></div>
@@ -829,6 +839,7 @@
 <!-- Va al final a proposito: envuelve funciones que definen los archivos
      de arriba (mostrarFormPedido, mostrarFormPedidoCliente). -->
 <script src="src/lib/disponibilidad.js"></script>
+<script src="src/lib/evidencias.js"></script>
 <script src="src/lib/tema.js"></script>
 </body>
 </html>
