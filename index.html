@@ -14,6 +14,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="src/styles/main.css">
 <link rel="stylesheet" href="src/styles/tema.css">
+<link rel="stylesheet" href="src/styles/rediseno.css">
 </head>
 <body>
 
@@ -70,6 +71,7 @@
     <button class="nav-btn" onclick="goTo('alertas',this)" data-modulo="alertas"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alertas<span id="alert-count" class="alert-dot hidden">0</span></button>
     <button class="nav-btn" onclick="goTo('evidencias',this)" data-modulo="movimientos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Evidencias</button>
     <div class="nav-group-title" data-grupo="Compras">Compras</div>
+    <button class="nav-btn" onclick="goTo('solicitudes',this)" data-modulo="pedidos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>Solicitudes</button>
     <button class="nav-btn" onclick="goTo('pedidos',this)" data-modulo="pedidos"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Pedidos</button>
     <button class="nav-btn" onclick="goTo('compras',this)" data-modulo="compras"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Compras</button>
     <button class="nav-btn" onclick="goTo('proveedores',this)" data-modulo="proveedores"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/></svg>Proveedores</button>
@@ -339,7 +341,27 @@
             Al terminar, verás las diferencias y decides qué ajustar. Todo queda registrado con PDF para firma.
           </p>
           <button class="btn btn-primary btn-full" onclick="iniciarNuevoConteo()" style="margin-bottom:8px">▶ Iniciar nuevo conteo físico</button>
-          <p style="font-size:11px;color:var(--text3);text-align:center">Si cierras accidentalmente el navegador, el conteo se recupera automáticamente</p>
+          <p style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:14px">Si cierras accidentalmente el navegador, el conteo se recupera automáticamente</p>
+
+          <div style="border-top:1px solid var(--border);padding-top:14px">
+            <div style="font-family:var(--cond,inherit);font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text2);margin-bottom:6px">
+              ¿Vas a contar en el anaquel?
+            </div>
+            <p style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+              Imprime la hoja y camina con papel. La hoja va agrupada por ubicación,
+              no por catálogo, para que sigas el anaquel de corrido.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="hojaDeConteo(false)">Imprimir hoja a ciegas</button>
+              <button class="btn" onclick="hojaDeConteo(true)">Hoja con existencias</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--text3);line-height:1.6;margin-top:10px">
+              <strong>A ciegas</strong> es la buena para un conteo de verdad: no muestra
+              cuánto dice el sistema, así que quien cuenta escribe lo que ve en lugar de
+              confirmar una cifra que ya trae enfrente. La <strong>hoja con existencias</strong>
+              sirve para recontar algo donde ya sabes que hay diferencia.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -532,6 +554,29 @@
     </section>
 
 <!-- ═══════════ COMPRAS ═══════════ -->
+    <!-- SOLICITUDES · el Excel del Ing. Miguel -->
+    <section id="tab-solicitudes" class="tab hidden">
+      <div class="page-header">
+        <div class="page-title">Solicitudes</div>
+        <button class="btn btn-sm" onclick="cargarSolicitudes()">&#8635; Actualizar</button>
+      </div>
+
+      <div class="card">
+        <div class="sol-drop">
+          <input type="file" id="sol-file" accept=".xlsx,.xls" style="display:none" onchange="solArchivo(this)">
+          <button class="btn btn-primary" onclick="document.getElementById('sol-file').click()">Elegir el Excel del Ing. Miguel</button>
+          <p>Viene en matriz &mdash; productos abajo, ranchos a lo ancho &mdash; y se desdobla solo.
+             Las columnas se empatan por el nombre del encabezado, no por su posici&oacute;n.</p>
+        </div>
+        <div id="sol-cuerpo" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="card-header">Solicitudes anteriores</div>
+        <div id="sol-historial"><div class="loading">Cargando...</div></div>
+      </div>
+    </section>
+
 <section id="tab-compras" class="tab hidden">
   <div class="card">
     <div class="card-title">🧾 Compras</div>
@@ -840,6 +885,8 @@
      de arriba (mostrarFormPedido, mostrarFormPedidoCliente). -->
 <script src="src/lib/disponibilidad.js"></script>
 <script src="src/lib/evidencias.js"></script>
+<script src="src/lib/solicitud.js"></script>
+<script src="src/lib/ficha.js"></script>
 <script src="src/lib/tema.js"></script>
 </body>
 </html>
