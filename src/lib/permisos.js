@@ -37,6 +37,12 @@ const PLANTILLAS = {
   'Solo consulta':    { dashboard:true, inventario:true, movimientos:true, alertas:true },
   'Operador básico':  { dashboard:true, entradas:true, salidas:true, scanner:true, inventario:true, alertas:true },
   'Supervisor':       { dashboard:true, entradas:true, salidas:true, scanner:true, inventario:true, inventario_edit:true, movimientos:true, pedidos:true, proveedores:true, alertas:true, conteo:true, reportes:true, compras:true },
+  // La contadora: sólo lo suyo, y de lectura salvo registrar pagos.
+  'Contadora':        { compras:true, compras_pagos:true, proveedores:true, reportes:true },
+  // La gerente: ve todo lo de analisis, no captura nada.
+  'Gerente':          { dashboard:true, dir:true, inventario:true, movimientos:true,
+                        alertas:true, reportes:true, compras:true, compras_pagos:true,
+                        proveedores:true, pedidos:true },
   'Acceso total':     Object.fromEntries(MODULOS.map(m => [m.key, true])),
 };
 
