@@ -226,3 +226,15 @@
   padding: 8px 11px;
   margin-top: 10px;
 }
+
+/* ── CUENTAS POR PAGAR ──────────────────────────────────────────── */
+
+.cxp-barra {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.cxp-filtros { display: flex; gap: 5px; flex-wrap: wrap; }
