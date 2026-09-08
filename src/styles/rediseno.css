@@ -179,3 +179,50 @@
   margin-bottom: 11px;
 }
 .fch-aviso.warn { border-left-color: var(--amber); background: var(--amber-bg); }
+
+/* ── REPARTO: vales por rancho y rastreo de órdenes ─────────────── */
+
+.rep-fila { cursor: pointer; }
+.rep-fila:hover { background: var(--bg); }
+
+.rep-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rep-grid { display: grid; gap: 10px; margin-top: 8px; }
+@media (min-width: 700px)  { .rep-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1120px) { .rep-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.rep-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 8px);
+  padding: 11px 13px;
+  background: var(--card, #fff);
+}
+.rep-card-h {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rep-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.rep-nota {
+  font-size: 12px;
+  color: var(--text2);
+  border-left: 3px solid var(--navy);
+  background: var(--bg);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 11px;
+  margin-top: 10px;
+}
