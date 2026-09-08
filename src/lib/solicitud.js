@@ -364,7 +364,11 @@ async function solGuardar(silencioso) {
     const { error: e2 } = await db.from('solicitud_lineas').insert(lineas);
     if (e2) throw e2;
 
-    if (!silencioso) { toast('✓ Solicitud ' + folio + ' guardada · ' + lineas.length + ' renglones'); }
+    if (!silencioso) {
+      toast('✓ Solicitud ' + folio + ' guardada · ' + lineas.length + ' renglones');
+      solDatos = null; solRender();
+      if (typeof repAbrir === 'function') repAbrir(sol.id);
+    }
     return { sol, lineas };
   } catch (e) {
     toast('No se pudo guardar: ' + e.message);
@@ -416,7 +420,7 @@ async function solGenerarOC() {
     }
     toast('✓ ' + g.sol.folio + ' guardada · ' + hechas + ' orden(es) de compra generadas');
     solDatos = null; solRender();
-    if (typeof cargarCompras === 'function') cargarCompras();
+    if (typeof repAbrir === 'function') repAbrir(g.sol.id);
   } catch (e) {
     toast('La solicitud se guardó, pero las órdenes no: ' + e.message);
   }
@@ -427,6 +431,8 @@ async function solGenerarOC() {
 async function cargarSolicitudes() {
   const cont = document.getElementById('sol-historial');
   if (!cont) return;
+  // si hay una solicitud abierta, se respeta
+  if (typeof repSol !== 'undefined' && repSol) { repRender(); return; }
   cont.innerHTML = '<div class="loading">Cargando...</div>';
   try {
     const { data, error } = await db.from('solicitudes')
@@ -444,7 +450,8 @@ async function cargarSolicitudes() {
     cont.innerHTML = '<div class="sol-scroll"><table class="sol-tabla"><thead><tr>'
       + '<th>Folio</th><th>Fecha</th><th>Archivo</th><th class="sol-num">Renglones</th><th>Estado</th>'
       + '</tr></thead><tbody>'
-      + data.map(s => `<tr><td class="sol-prod">${solEsc(s.folio)}</td>`
+      + data.map(s => `<tr class="rep-fila" onclick="repAbrir('${s.id}')" title="Abrir para surtir y rastrear">`
+        + `<td class="sol-prod">${solEsc(s.folio)}</td>`
         + `<td>${s.fecha || ''}</td><td class="sol-sub">${solEsc(s.archivo || '')}</td>`
         + `<td class="sol-num">${porSol.get(s.id) || 0}</td>`
         + `<td><span class="badge badge-info">${solEsc(s.estado || '')}</span></td></tr>`).join('')
