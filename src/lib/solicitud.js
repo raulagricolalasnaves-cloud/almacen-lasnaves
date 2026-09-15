@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════
-//  solicitud.js — el Excel del Ing. Miguel, de archivo a órdenes
+//  solicitud.js — de la solicitud a las órdenes
 //
-//  El Ing. Miguel manda cada semana un Excel con lo que pide cada
-//  rancho. No viene en renglones: viene en MATRIZ — los productos
-//  abajo y los ranchos a lo ancho. Por eso hasta hoy se capturaba a
-//  mano, renglón por renglón.
+//  Cada semana llega lo que pide cada rancho. Casi siempre en un
+//  Excel en MATRIZ — los productos abajo y los ranchos a lo ancho —
+//  pero a veces hay que meterlo a mano. Las dos entradas terminan
+//  en la misma pantalla de reparto.
 //
 //  Lo que hace este archivo:
 //
@@ -132,14 +132,14 @@ async function solArchivo(input) {
     const m = solLeerMatriz(filas);
     if (!m) {
       cont.innerHTML = '<div class="empty">No encontré la columna <b>Producto</b> en las primeras filas. '
-        + '¿Es la solicitud del Ing. Miguel?</div>';
+        + '¿Es un archivo de solicitud?</div>';
       return;
     }
     if (!m.productos.length) {
       cont.innerHTML = '<div class="empty">El archivo se leyó bien pero ningún producto trae cantidad.</div>';
       return;
     }
-    solDatos = { archivo: file.name, cols: m.cols, productos: m.productos };
+    solDatos = { archivo: file.name, origen: 'Excel', cols: m.cols, productos: m.productos };
     await solEmparejar();
     solRender();
   } catch (e) {
@@ -197,27 +197,24 @@ async function solEmparejar() {
     (fichas || []).forEach(f => solFichas.set(f.producto_id, f));
   }
 
-  // El sistema propone. Nada de esto se pregunta.
+  // El sistema pone lo que sabe. Nada de esto se pregunta.
   solDatos.productos.forEach(p => {
     const f = solFichas.get(p.producto_id);
     p.ficha = f || null;
-    const stock = f && f.stock_verificado ? Number(f.stock) || 0 : 0;
-    const sabeCuanto = !!(f && f.stock_verificado);
 
-    if (!p.producto_id)                 p.plan = 'alta';
-    else if (!f || !f.proveedor_nombre) p.plan = 'cotizar';
-    else if (sabeCuanto && stock >= p.total) p.plan = 'surtir';
-    else if (sabeCuanto && stock > 0)   p.plan = 'mixto';
-    else                                p.plan = 'comprar';
+    // sistema = null quiere decir "nunca se ha contado", que NO es cero
+    p.sistema = (f && f.stock_verificado) ? (Number(f.stock) || 0) : null;
+    p.contado = null;      // lo llena él si verifica
+    p.surtir  = null;      // solReplan pone el valor por omisión
 
-    p.surtir  = p.plan === 'surtir' ? p.total : (p.plan === 'mixto' ? stock : 0);
-    p.comprar = +(p.total - p.surtir).toFixed(3);
     // Un costo de 0 no es un costo: las remisiones de algunos
     // proveedores llegan sin precio y quedan en cero. Decir "$0.00"
     // seria mentir; se dice "sin precio".
     const cp = f && Number(f.costo_promedio)  > 0 ? Number(f.costo_promedio)  : null;
     const ch = f && Number(f.costo_historico) > 0 ? Number(f.costo_historico) : null;
     p.costo   = cp != null ? cp : ch;
+
+    solReplan(p);
   });
 }
 
@@ -232,30 +229,153 @@ function solRecalcular(idx, plan) {
   solRender();
 }
 
-// ── 3 · Pantalla ───────────────────────────────────────────────────
+// ── 3 · Reparto: lo que se surte, lo que se compra, y la verificación
+//
+//  Tres cosas cambian aquí respecto de la primera versión:
+//
+//  · SURTIDO PARCIAL. Ya no es "surto todo o no surto nada": se
+//    escribe la cantidad. Lo que no se surte se compra, solo.
+//
+//  · VERIFICACIÓN. Una columna "conté" al lado de lo que dice el
+//    sistema. Es el momento natural para revisarlo: estás decidiendo
+//    qué sacas del almacén, o sea que tienes el anaquel enfrente.
+//    Si no coincide, al guardar se ajusta y queda el movimiento.
+//
+//  · SIN CONTAR ≠ CERO. Si el producto nunca se ha contado, el
+//    sistema no dice cero: dice que no sabe. Y si escribes lo que
+//    contaste, ese producto queda contado desde ese momento.
 
 const SOL_PLAN = {
-  surtir : ['badge-ok',     'Surto del almacén'],
+  surtir : ['badge-ok',     'Surto todo'],
   mixto  : ['badge-warn',   'Surto parte'],
-  comprar: ['badge-info',   'Compro al de siempre'],
-  cotizar: ['badge-danger', 'Hay que cotizar'],
+  comprar: ['badge-info',   'Compro'],
+  cotizar: ['badge-danger', 'Cotizar'],
   alta   : ['badge-danger', 'Alta + cotizar'],
 };
+
+// Lo que se puede sacar del almacén: lo contado si lo anotó, si no
+// lo que dice el sistema, y 0 si nunca se ha contado.
+function solDisponible(p) {
+  if (p.contado != null) return Number(p.contado);
+  return p.sistema != null ? Number(p.sistema) : 0;
+}
+
+// ── El reparto entre ranchos ───────────────────────────────────────
+//
+//  Raúl: "yo quiero tener control de cuánto reparto a cada lugar".
+//
+//  Mientras no opine, se prorratea — que es lo razonable y es lo que
+//  ya hacía. En cuanto toca una casilla, manda él y el sistema deja de
+//  repartir solo.
+
+// Las columnas donde este producto sí se pidió.
+function solColsDe(p) {
+  return (p.cant || []).map((v, j) => (v > 0 ? j : -1)).filter(j => j >= 0);
+}
+
+// Cuánto sale del almacén para cada rancho, en el orden de solColsDe.
+function solReparto(p) {
+  const cols = solColsDe(p);
+  if (p.porCol) return cols.map(j => Math.max(0, Number(p.porCol[j]) || 0));
+  return cols.map(j => (p.total > 0 ? +(p.surtir * p.cant[j] / p.total).toFixed(3) : 0));
+}
+
+// El tope de un rancho: lo que ese rancho pidió, y nunca más de lo que
+// queda después de lo repartido a los otros.
+function solTopeCol(p, j) {
+  const cols = solColsDe(p);
+  const otros = cols.filter(c => c !== j)
+    .reduce((s, c) => s + (p.porCol ? (Number(p.porCol[c]) || 0) : 0), 0);
+  return Math.min(Number(p.cant[j]), Math.max(0, solDisponible(p) - otros));
+}
+
+function solSetPorCol(i, j, valor) {
+  const p = solDatos.productos[i];
+  const cols = solColsDe(p);
+  if (!p.porCol) {
+    // Primera vez: se arranca de lo prorrateado, para que sólo tenga
+    // que mover lo que quiere cambiar.
+    const pro = solReparto(p);
+    p.porCol = [];
+    cols.forEach((c, k) => { p.porCol[c] = pro[k]; });
+  }
+  p.porCol[j] = Math.max(0, Math.min(solNum(valor), solTopeCol(p, j)));
+  solReplan(p);
+  solRender();
+}
+
+// Devolverle el reparto al sistema.
+function solParejo(i) {
+  const p = solDatos.productos[i];
+  p.porCol = null;
+  solReplan(p);
+  solRender();
+}
+
+function solAbrirReparto(i) {
+  const p = solDatos.productos[i];
+  p.abierto = !p.abierto;
+  solRender();
+}
+
+function solReplan(p) {
+  const disp = solDisponible(p);
+  // Si repartió a mano, el total a surtir ES lo que él repartió. No se
+  // recalcula por encima de su decisión.
+  if (p.porCol) {
+    p.surtir = +solColsDe(p)
+      .reduce((s, j) => s + (Number(p.porCol[j]) || 0), 0).toFixed(3);
+  }
+  if (p.surtir == null) p.surtir = Math.min(p.total, disp);
+  p.surtir  = Math.max(0, Math.min(p.surtir, p.total, disp));
+  p.comprar = +(p.total - p.surtir).toFixed(3);
+  const f = p.ficha;
+  if (!p.producto_id)                    p.plan = 'alta';
+  else if (p.surtir >= p.total)          p.plan = 'surtir';
+  else if (p.surtir > 0)                 p.plan = 'mixto';
+  else if (!f || !f.proveedor_nombre)    p.plan = 'cotizar';
+  else                                   p.plan = 'comprar';
+}
+
+function solSetContado(i, valor) {
+  const p = solDatos.productos[i];
+  const t = String(valor).trim();
+  p.contado = t === '' ? null : Math.max(0, solNum(t));
+  p.surtir = null;              // se recalcula con lo nuevo
+  solReplan(p);
+  solRender();
+}
+
+function solSetSurtir(i, valor) {
+  const p = solDatos.productos[i];
+  // Mover el total vuelve a repartirlo solo: si quería otro reparto, ya
+  // lo hizo abajo, y ahí manda él.
+  p.porCol = null;
+  p.surtir = Math.max(0, solNum(valor));
+  solReplan(p);
+  solRender();
+}
 
 function solRender() {
   const cont = document.getElementById('sol-cuerpo');
   if (!solDatos) { cont.innerHTML = ''; return; }
+  if (solDatos.manual) { solRenderManual(); return; }
+
   const P = solDatos.productos;
+  P.forEach(solReplan);
 
   const n = k => P.filter(p => p.plan === k).length;
-  const importe = P.reduce((s, p) => s + (p.costo != null ? p.costo * p.comprar : 0), 0);
+  const importe   = P.reduce((s, p) => s + (p.costo != null ? p.costo * p.comprar : 0), 0);
   const sinPrecio = P.filter(p => p.comprar > 0 && p.costo == null).length;
+  const difs      = P.filter(p => p.contado != null && p.sistema != null
+                                  && Number(p.contado) !== Number(p.sistema));
+  const nuevos    = P.filter(p => p.contado != null && p.sistema == null);
 
   const resumen = `
     <div class="sol-tiles">
       <div class="sol-tile"><span class="k">Renglones</span><span class="v">${P.length}</span></div>
-      <div class="sol-tile ok"><span class="k">Surto sin comprar</span><span class="v">${n('surtir')}</span></div>
-      <div class="sol-tile"><span class="k">Al proveedor de siempre</span><span class="v">${n('comprar') + n('mixto')}</span></div>
+      <div class="sol-tile ok"><span class="k">Sale del almacén</span><span class="v">${n('surtir') + n('mixto')}</span></div>
+      <div class="sol-tile"><span class="k">Se compra</span><span class="v">${n('comprar') + n('mixto')}</span></div>
       <div class="sol-tile bad"><span class="k">Hay que cotizar</span><span class="v">${n('cotizar') + n('alta')}</span></div>
       <div class="sol-tile"><span class="k">Importe estimado</span><span class="v" style="font-size:16px">${solM(importe)}</span>
         ${sinPrecio ? `<span class="s">${sinPrecio} sin precio conocido</span>` : ''}</div>
@@ -264,20 +384,72 @@ function solRender() {
   const filas = P.map((p, i) => {
     const f = p.ficha;
     const [cls, txt] = SOL_PLAN[p.plan];
-    const existencia = !p.producto_id ? '<span class="sol-mut">—</span>'
-      : (f && f.stock_verificado ? solF(Number(f.stock)) + ' ' + (p.unidad || '')
-                                 : '<span class="badge badge-warn">sin contar</span>');
+    const disp = solDisponible(p);
+
+    // lo que dice el sistema
+    const sist = !p.producto_id ? '<span class="sol-mut">—</span>'
+      : (p.sistema == null ? '<span class="badge badge-warn" title="Nunca se ha contado">sin contar</span>'
+                           : solF(p.sistema));
+
+    // lo que él contó, y la diferencia
+    const inpContado = p.producto_id
+      ? `<input class="input sol-inp" type="number" min="0" step="any" inputmode="decimal"
+           value="${p.contado != null ? p.contado : ''}" placeholder="—"
+           onchange="solSetContado(${i}, this.value)" title="Lo que de verdad hay en el anaquel">`
+      : '';
+    let dif = '';
+    if (p.contado != null && p.sistema != null) {
+      const d = +(Number(p.contado) - Number(p.sistema)).toFixed(3);
+      dif = d === 0 ? '<span class="badge badge-ok">cuadra</span>'
+        : `<span class="badge ${d > 0 ? 'badge-info' : 'badge-danger'}">${d > 0 ? '+' : ''}${solF(d)}</span>`;
+    } else if (p.contado != null && p.sistema == null) {
+      dif = '<span class="badge badge-ok">queda contado</span>';
+    }
+
+    const inpSurtir = p.producto_id
+      ? `<input class="input sol-inp" type="number" min="0" max="${Math.min(p.total, disp)}" step="any"
+           inputmode="decimal" value="${p.surtir}" onchange="solSetSurtir(${i}, this.value)"
+           ${disp <= 0 ? 'disabled title="No hay existencia registrada"' : ''}>`
+      : '<span class="sol-mut">·</span>';
+
     const prov = f && f.proveedor_nombre
       ? `<span class="sol-der" title="Deducido: único proveedor de este producto en el historial">${solEsc(f.proveedor_nombre)}</span>`
         + (f.dias_credito != null ? ` <span class="badge badge-info">${f.dias_credito} d</span>` : '')
-      : '<span class="sol-falta">ninguno todavía</span>';
+      : (p.comprar > 0 ? '<span class="sol-falta">ninguno todavía</span>' : '<span class="sol-mut">—</span>');
 
-    const opciones = ['surtir', 'mixto', 'comprar', 'cotizar']
-      .map(o => `<option value="${o}"${p.plan === o ? ' selected' : ''}>${SOL_PLAN[o][1]}</option>`).join('');
+    // A dónde va. Si va a más de un lado y algo sale del almacén, se
+    // puede abrir para decir cuánto a cada quien; mientras esté
+    // cerrado no estorba, que es lo que él pidió de la interfaz.
+    const cols = solColsDe(p);
+    const rep  = solReparto(p);
+    const puedeRepartir = cols.length > 1 && p.producto_id && disp > 0;
 
-    const detalle = solDatos.cols.map((c, j) => p.cant[j] > 0
-      ? `<span class="sol-pill">${solEsc(c.rancho ? c.rancho.nombre : c.encabezado)}${c.cultivo ? ' · ' + solEsc(c.cultivo) : ''}: <b>${solF(p.cant[j])}</b></span>`
-      : '').join('');
+    const detalle = p.abierto && puedeRepartir
+      ? `<div class="sol-rep">
+          ${cols.map((j, k) => {
+            const c = solDatos.cols[j];
+            return `<label class="sol-rep-f">
+              <span class="n">${solEsc(c.rancho ? c.rancho.nombre : c.encabezado)}${c.cultivo ? ' · ' + solEsc(c.cultivo) : ''}</span>
+              <span class="sol-mut">pide ${solF(p.cant[j])}</span>
+              <input class="input sol-inp" type="number" min="0" max="${solTopeCol(p, j)}" step="any"
+                inputmode="decimal" value="${rep[k]}" title="Cuánto le sale del almacén a este rancho"
+                onchange="solSetPorCol(${i}, ${j}, this.value)">
+            </label>`;
+          }).join('')}
+          <div class="sol-rep-pie">
+            <span class="sol-sub">${p.porCol ? 'lo repartiste tú' : 'repartido a la mitad'}</span>
+            ${p.porCol ? `<button class="btn btn-sm" onclick="solParejo(${i})">Que lo reparta el sistema</button>` : ''}
+            <button class="btn btn-sm" onclick="solAbrirReparto(${i})">Cerrar</button>
+          </div>
+        </div>`
+      : solDatos.cols.map((c, j) => p.cant[j] > 0
+          ? `<span class="sol-pill">${solEsc(c.rancho ? c.rancho.nombre : c.encabezado)}${c.cultivo ? ' · ' + solEsc(c.cultivo) : ''}: <b>${solF(p.cant[j])}</b></span>`
+          : '').join('')
+        + (puedeRepartir
+            ? ` <button class="sol-rep-abre" onclick="solAbrirReparto(${i})"
+                  title="Decidir cuánto sale del almacén para cada rancho">${
+                  p.porCol ? '✎ lo repartiste tú' : '¿cuánto a cada uno?'}</button>`
+            : '');
 
     return `<tr>
       <td>
@@ -288,30 +460,147 @@ function solRender() {
         <div class="sol-ranchos">${detalle}</div>
       </td>
       <td class="sol-num">${solF(p.total)} ${solEsc(p.unidad || '')}</td>
-      <td class="sol-num">${existencia}</td>
-      <td>
-        <span class="badge ${cls}">${txt}</span>
-        ${p.plan !== 'alta' ? `<select class="input sol-sel" onchange="solRecalcular(${i}, this.value)">${opciones}</select>` : ''}
-      </td>
-      <td class="sol-num">${p.surtir > 0 ? solF(p.surtir) : '<span class="sol-mut">·</span>'}</td>
+      <td class="sol-num">${sist}</td>
+      <td class="sol-num">${inpContado}</td>
+      <td class="sol-num">${dif}</td>
+      <td class="sol-num">${inpSurtir}</td>
       <td class="sol-num">${p.comprar > 0 ? solF(p.comprar) : '<span class="sol-mut">·</span>'}</td>
-      <td>${prov}</td>
+      <td><span class="badge ${cls}">${txt}</span></td>
+      <td style="font-size:12.5px">${prov}</td>
       <td class="sol-num">${p.costo != null ? solM(p.costo) : '<span class="badge badge-warn">s/precio</span>'}</td>
     </tr>`;
   }).join('');
 
+  const avisoDif = (difs.length || nuevos.length) ? `
+    <div class="rep-nota"><b>Al guardar se ajusta el inventario.</b>
+      ${difs.length ? `${difs.length} producto(s) no cuadran con lo que dice el sistema` : ''}${difs.length && nuevos.length ? ' y ' : ''}${nuevos.length ? `${nuevos.length} quedan contados por primera vez` : ''}.
+      Queda un movimiento de ajuste por cada uno, con tu nombre y la fecha.</div>` : '';
+
   cont.innerHTML = resumen + `
-    <div class="sol-arch">📄 ${solEsc(solDatos.archivo)} · ${solDatos.cols.filter(c => c.rancho).length} de ${solDatos.cols.length} columnas empataron con un rancho</div>
+    <div class="sol-arch">${solDatos.archivo ? '📄 ' + solEsc(solDatos.archivo) : '✎ Capturada a mano'}
+      · ${solDatos.cols.filter(c => c.rancho).length} de ${solDatos.cols.length} columnas empataron con un rancho</div>
     <div class="sol-scroll"><table class="sol-tabla">
-      <thead><tr><th>Producto</th><th class="sol-num">Piden</th><th class="sol-num">Tengo</th>
-      <th>Qué hago</th><th class="sol-num">Surto</th><th class="sol-num">Compro</th>
-      <th>Proveedor</th><th class="sol-num">Costo</th></tr></thead>
+      <thead><tr>
+        <th>Producto</th><th class="sol-num">Piden</th>
+        <th class="sol-num" title="Lo que dice el sistema">Sistema</th>
+        <th class="sol-num" title="Lo que de verdad hay">Conté</th>
+        <th class="sol-num">Dif.</th>
+        <th class="sol-num" title="Cuánto sale del almacén">Surto</th>
+        <th class="sol-num">Compro</th><th>Queda</th><th>Proveedor ƒ</th><th class="sol-num">Costo</th>
+      </tr></thead>
       <tbody>${filas}</tbody></table></div>
+    ${avisoDif}
     <div class="sol-acciones">
       <button class="btn btn-primary" onclick="solGuardar()">Guardar solicitud</button>
       <button class="btn" onclick="solGenerarOC()">Guardar y generar órdenes</button>
       <button class="btn" onclick="solDatos=null;solRender()">Descartar</button>
     </div>`;
+}
+
+// ── 3b · Capturar a mano, con las mismas columnas del Excel ───────
+
+async function solManual() {
+  const cont = document.getElementById('sol-cuerpo');
+  cont.innerHTML = '<div class="loading">Preparando...</div>';
+  try {
+    await solCargarCatalogos();
+    // Las columnas: cada rancho, y para los que manejan más de un
+    // cultivo, una columna por cultivo. Sale del histórico, no se
+    // captura.
+    const { data: hist } = await db.from('v_quien_pide').select('rancho_nombre,cultivo_nombre');
+    const porRancho = new Map();
+    (hist || []).forEach(h => {
+      if (!h.cultivo_nombre) return;
+      if (!porRancho.has(h.rancho_nombre)) porRancho.set(h.rancho_nombre, new Set());
+      porRancho.get(h.rancho_nombre).add(h.cultivo_nombre);
+    });
+    const cols = [];
+    solRanchos.forEach(r => {
+      const cult = [...(porRancho.get(r.nombre) || [])].filter(c => c && c !== 'General').sort();
+      if (cult.length > 1) cult.forEach(c => cols.push({ i: cols.length, encabezado: r.nombre + ' (' + c + ')', rancho: r, cultivo: c }));
+      else cols.push({ i: cols.length, encabezado: r.nombre, rancho: r, cultivo: cult[0] || null });
+    });
+    const { data: prods } = await db.from('productos').select('id,nombre,unidad,activo').order('nombre');
+    solDatos = { manual: true, origen: 'Manual', cols, productos: [],
+                 catalogo: (prods || []).filter(p => p.activo !== false) };
+    solRenderManual();
+  } catch (e) {
+    cont.innerHTML = '<div class="empty">No se pudo preparar: ' + solEsc(e.message) + '</div>';
+  }
+}
+
+function solManualAgregar(nombre) {
+  const t = String(nombre || '').trim();
+  if (!t) return;
+  const cat = (solDatos.catalogo || []).find(x => solNorm(x.nombre) === solNorm(t));
+  solDatos.productos.push({
+    nombre: cat ? cat.nombre : t,
+    producto_id: cat ? cat.id : null,
+    unidad: cat ? (cat.unidad || '') : '',
+    unidadExcel: cat ? (cat.unidad || '') : '',
+    cant: solDatos.cols.map(() => 0), total: 0,
+  });
+  solRenderManual();
+}
+
+function solManualCelda(i, j, valor) {
+  const p = solDatos.productos[i];
+  p.cant[j] = Math.max(0, solNum(valor));
+  p.total = +p.cant.reduce((a, b) => a + b, 0).toFixed(3);
+  solRenderManual();
+}
+
+function solManualQuitar(i) { solDatos.productos.splice(i, 1); solRenderManual(); }
+
+function solRenderManual() {
+  const cont = document.getElementById('sol-cuerpo');
+  const th = solDatos.cols.map(c =>
+    `<th class="sol-num" title="${solEsc(c.encabezado)}">${solEsc(c.cultivo ? c.cultivo : (c.rancho ? c.rancho.nombre : c.encabezado))}
+      ${c.cultivo ? `<div class="sol-sub" style="font-weight:400">${solEsc(c.rancho.nombre)}</div>` : ''}</th>`).join('');
+
+  const filas = solDatos.productos.map((p, i) => `<tr>
+      <td><div class="sol-prod">${solEsc(p.nombre)}</div>
+        <div class="sol-sub">${p.producto_id || '<span class="sol-falta">nuevo, se dará de alta</span>'}</div></td>
+      ${p.cant.map((v, j) => `<td class="sol-num"><input class="input sol-inp" type="number" min="0" step="any"
+         inputmode="decimal" value="${v || ''}" placeholder="·" onchange="solManualCelda(${i},${j},this.value)"></td>`).join('')}
+      <td class="sol-num"><b>${solF(p.total)}</b> ${solEsc(p.unidad || '')}</td>
+      <td><button class="btn btn-sm" onclick="solManualQuitar(${i})" title="Quitar">✕</button></td>
+    </tr>`).join('');
+
+  const opciones = (solDatos.catalogo || []).slice(0, 500)
+    .map(x => `<option value="${solEsc(x.nombre)}"></option>`).join('');
+
+  const conCantidad = solDatos.productos.filter(p => p.total > 0).length;
+
+  cont.innerHTML = `
+    <div class="sol-arch">✎ Capturando a mano · un renglón por producto, una columna por rancho</div>
+    <div class="sol-manual-add">
+      <input class="input" id="sol-buscar-prod" list="sol-catalogo" placeholder="Escribe el producto y dale Enter"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();solManualAgregar(this.value);this.value='';}">
+      <datalist id="sol-catalogo">${opciones}</datalist>
+      <button class="btn" onclick="const e=document.getElementById('sol-buscar-prod');solManualAgregar(e.value);e.value='';">Agregar</button>
+    </div>
+    ${solDatos.productos.length ? `<div class="sol-scroll"><table class="sol-tabla">
+      <thead><tr><th>Producto</th>${th}<th class="sol-num">Total</th><th></th></tr></thead>
+      <tbody>${filas}</tbody></table></div>`
+      : '<div class="empty">Agrega el primer producto arriba.</div>'}
+    <div class="sol-acciones">
+      <button class="btn btn-primary" ${conCantidad ? '' : 'disabled'} onclick="solManualContinuar()">
+        Continuar con ${conCantidad} renglón(es)</button>
+      <button class="btn" onclick="solDatos=null;solRender()">Descartar</button>
+    </div>
+    <div class="rep-nota">Si el producto no está en el catálogo, escríbelo igual: queda marcado para darlo de
+      alta, como cuando viene en el Excel.</div>`;
+}
+
+async function solManualContinuar() {
+  solDatos.productos = solDatos.productos.filter(p => p.total > 0);
+  if (!solDatos.productos.length) { toast('Ningún renglón tiene cantidad'); return; }
+  solDatos.manual = false;
+  const cont = document.getElementById('sol-cuerpo');
+  cont.innerHTML = '<div class="loading">Buscando existencias y proveedores...</div>';
+  try { await solEmparejar(); solRender(); }
+  catch (e) { cont.innerHTML = '<div class="empty">No se pudo: ' + solEsc(e.message) + '</div>'; }
 }
 
 // ── 4 · Guardar ────────────────────────────────────────────────────
@@ -323,13 +612,58 @@ function solFolio() {
        + String(d.getMinutes()).padStart(2, '0');
 }
 
+// Antes de guardar, lo que él contó se vuelve realidad: se ajusta la
+// existencia y queda el movimiento con su nombre y la fecha. El
+// producto que nunca se había contado queda contado.
+async function solAplicarConteos() {
+  const P = solDatos.productos.filter(p => p.producto_id && p.contado != null);
+  if (!P.length) return 0;
+  const hoy = new Date().toISOString().slice(0, 10);
+  let hechos = 0;
+  for (const p of P) {
+    const nuevo = Number(p.contado);
+    const antes = p.sistema;
+    try {
+      await db.from('productos').update({
+        stock: nuevo, stock_verificado: true, fecha_conteo: hoy
+      }).eq('id', p.producto_id);
+
+      if (antes != null && Number(antes) !== nuevo) {
+        const dif = +(nuevo - Number(antes)).toFixed(3);
+        const mov = {
+          tipo: dif >= 0 ? 'entrada' : 'salida',
+          id_producto: p.producto_id, nombre: p.nombre,
+          cantidad: Math.abs(dif), unidad: p.unidad || null,
+          usuario_id: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null,
+          usuario_nombre: (typeof currentProfile !== 'undefined' && currentProfile) ? currentProfile.nombre : null,
+          destino: 'Verificacion al repartir',
+          nota: 'Verificado al repartir la solicitud: el sistema decia '
+                + antes + ' y se contaron ' + nuevo + ' ' + (p.unidad || ''),
+          stock_resultante: nuevo,
+          almacen_id: (typeof almacenActivo !== 'undefined' && almacenActivo) ? almacenActivo.id : null,
+          created_at: new Date().toISOString(),
+        };
+        if (typeof API !== 'undefined' && API.addMovimiento) await API.addMovimiento(mov);
+        else await db.from('movimientos').insert(mov);
+      }
+      p.sistema = nuevo;
+      hechos++;
+    } catch (e) { toast('No se pudo ajustar ' + p.nombre + ': ' + e.message); }
+  }
+  if (typeof todosProductos !== 'undefined') todosProductos = [];
+  if (typeof fichaOlvidar === 'function') fichaOlvidar();
+  return hechos;
+}
+
 async function solGuardar(silencioso) {
   if (!solDatos) return null;
   try {
+    const ajustes = await solAplicarConteos();
     const folio = solFolio();
     const { data: sol, error: e1 } = await db.from('solicitudes').insert({
-      folio, archivo: solDatos.archivo, origen: 'Excel',
-      solicitante: 'Ing. Miguel', estado: 'Abierta',
+      folio, archivo: solDatos.archivo || null,
+      origen: solDatos.origen || 'Excel',
+      solicitante: solDatos.solicitante || null, estado: 'Abierta',
       creado_por: (typeof currentProfile !== 'undefined' && currentProfile) ? currentProfile.nombre : null
     }).select().single();
     if (e1) throw e1;
@@ -365,7 +699,8 @@ async function solGuardar(silencioso) {
     if (e2) throw e2;
 
     if (!silencioso) {
-      toast('✓ Solicitud ' + folio + ' guardada · ' + lineas.length + ' renglones');
+      toast('✓ Solicitud ' + folio + ' guardada · ' + lineas.length + ' renglones'
+        + (ajustes ? ' · ' + ajustes + ' existencia(s) verificadas' : ''));
       solDatos = null; solRender();
       if (typeof repAbrir === 'function') repAbrir(sol.id);
     }
@@ -417,6 +752,14 @@ async function solGenerarOC() {
       }));
       const { error: e2 } = await db.from('oc_lineas').insert(lin);
       if (e2) throw e2;
+
+      // Amarrar los renglones de la solicitud con su orden. Sin esto
+      // no se puede saber si lo que falta para un rancho ya llego.
+      const ids = grupo.items.map(p => p.producto_id).filter(Boolean);
+      if (ids.length) {
+        await db.from('solicitud_lineas').update({ oc_id: oc.id })
+          .eq('solicitud_id', g.sol.id).in('producto_id', ids);
+      }
     }
     toast('✓ ' + g.sol.folio + ' guardada · ' + hechas + ' orden(es) de compra generadas');
     solDatos = null; solRender();

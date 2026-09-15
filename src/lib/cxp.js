@@ -93,7 +93,8 @@ function cxpRender() {
       <div class="sol-tile"><span class="k">Esta semana</span><span class="v" style="font-size:17px">${cxpM0(suma('Esta semana'))}</span><span class="s">${cuenta('Esta semana')} facturas</span></div>
       <div class="sol-tile"><span class="k">Este mes</span><span class="v" style="font-size:17px">${cxpM0(suma('Este mes'))}</span><span class="s">${cuenta('Este mes')} facturas</span></div>
       <div class="sol-tile"><span class="k">Más adelante</span><span class="v" style="font-size:17px">${cxpM0(suma('Mas adelante'))}</span><span class="s">${cuenta('Mas adelante')} facturas</span></div>
-      <div class="sol-tile"><span class="k">Sin fecha de pago</span><span class="v">${sinPlazo}</span><span class="s">el proveedor varía su plazo</span></div>
+      <div class="sol-tile${sinPlazo ? ' warn' : ''}"><span class="k">Sin fecha de pago</span><span class="v">${sinPlazo}</span><span class="s">${
+        puedeDarFe ? 'escribe el plazo en la columna Vence' : 'el proveedor varía su plazo'}</span></div>
     </div>`;
 
   const filtros = ['Pendientes', 'Vencida', 'Esta semana', 'Este mes', 'Sin fecha', 'Pagada', 'Todas']
@@ -110,6 +111,22 @@ function cxpRender() {
           ? '<span class="badge badge-warn" title="Este proveedor usa plazos distintos en sus órdenes; el sistema no adivina">plazo variable</span>'
           : '<span class="sol-mut">sin plazo</span>');
 
+    // Jacona, ANSA y Tepeyac quedaron en "depende de la compra". El
+    // sistema no les va a inventar fecha nunca. Pero cuando Raúl tiene
+    // la factura enfrente, el dato está ahí: se escribe y se acabó.
+    // No es captura masiva — es una casilla que sólo aparece en las
+    // facturas que de verdad la necesitan.
+    const ponPlazo = (r.falta_plazo && puedeDarFe)
+      ? `<div class="cxp-plazo">
+          <input class="input cxp-dias" type="number" min="0" step="1" placeholder="días"
+            title="Los días de crédito que dice esta factura"
+            onkeydown="if(event.key==='Enter')cxpPonerPlazo('${r.compra_id}','dias',this.value)"
+            onchange="cxpPonerPlazo('${r.compra_id}','dias',this.value)">
+          <span class="sol-mut">o</span>
+          <input class="input cxp-fecha" type="date" title="La fecha exacta en que vence"
+            onchange="cxpPonerPlazo('${r.compra_id}','fecha',this.value)">
+        </div>` : '';
+
     return `<tr>
       <td class="sol-prod">${cxpEsc(r.factura || r.folio_interno || '—')}
         <div class="sol-sub">${cxpEsc(r.proveedor_nombre || '')}</div></td>
@@ -119,7 +136,8 @@ function cxpRender() {
                 : cxpEsc(r.razon_social))
             : '<span class="badge badge-warn">falta</span>'}</td>
       <td>${cxpF(r.fecha_compra)}</td>
-      <td>${venc}</td>
+      <td>${venc}${ponPlazo}${r.plazo_puesto_por
+            ? `<div class="sol-sub">lo pusiste tú · ${cxpEsc(r.plazo_puesto_el || '')}</div>` : ''}</td>
       <td class="sol-num">${cxpM(r.total)}</td>
       <td class="sol-num">${Number(r.pagado) > 0 ? cxpM(r.pagado) : '<span class="sol-mut">·</span>'}</td>
       <td class="sol-num">${cxpM(r.saldo)}</td>
@@ -184,6 +202,57 @@ async function cxpDarFe(id) {
   } catch (e) { toast('No se pudo guardar: ' + e.message); }
 }
 
+// ── El plazo que el sistema no puede deducir ───────────────────────
+//
+//  Raúl contestó que Jacona, ANSA y Tepeyac "dependen de la compra".
+//  Eso cierra la puerta a deducirles el plazo, pero no a saberlo: lo
+//  dice el papel. Aquí lo escribe una vez, con su nombre y la fecha,
+//  para que después nadie lo confunda con una fecha deducida.
+//
+//  Acepta cualquiera de las dos formas — los días o la fecha — porque
+//  unas facturas dicen "30 días" y otras traen la fecha impresa.
+async function cxpPonerPlazo(id, como, valor) {
+  const r = cxpDatos.find(x => x.compra_id === id);
+  if (!r) return;
+  const v = String(valor || '').trim();
+  if (!v) return;
+
+  const quien = (typeof currentProfile !== 'undefined' && currentProfile) ? currentProfile.nombre : 'Raúl';
+  const hoy   = new Date().toISOString().slice(0, 10);
+  const campos = { plazo_puesto_por: quien, plazo_puesto_el: hoy };
+  let dice;
+
+  if (como === 'dias') {
+    const d = Math.round(Number(v));
+    if (!isFinite(d) || d < 0) { toast('Los días tienen que ser un número.'); return; }
+    campos.dias_credito = d;
+    // Si ya sabemos la fecha de compra, la fecha de vencimiento se
+    // calcula sola; si no, se deja para que la vista use los días.
+    if (r.fecha_compra) {
+      const f = new Date(String(r.fecha_compra).slice(0, 10) + 'T12:00');
+      f.setDate(f.getDate() + d);
+      campos.fecha_vencimiento = f.toISOString().slice(0, 10);
+    }
+    dice = d + ' días';
+  } else {
+    campos.fecha_vencimiento = v;
+    // De la fecha se saca el plazo, por si después sirve para deducir
+    // el de otras facturas del mismo proveedor.
+    if (r.fecha_compra) {
+      const dif = Math.round((new Date(v + 'T12:00') - new Date(String(r.fecha_compra).slice(0, 10) + 'T12:00')) / 864e5);
+      if (dif >= 0) campos.dias_credito = dif;
+    }
+    dice = 'vence ' + v;
+  }
+
+  try {
+    const { error } = await db.from('compras').update(campos).eq('id', id);
+    if (error) throw error;
+    toast('✓ ' + (r.factura || r.folio_interno) + ' · ' + dice);
+    await cargarCxp();       // se recalcula el estado y los recuadros
+  } catch (e) { toast('No se pudo guardar el plazo: ' + e.message); }
+}
+
 // ── La contadora registra el pago ──────────────────────────────────
 
 async function cxpPagar(id) {
@@ -221,6 +290,8 @@ function cxpExcel() {
     'Fecha compra'   : r.fecha_compra || '',
     'Dias credito'   : r.dias_credito == null ? '' : r.dias_credito,
     'Plazo tomado de': r.origen_plazo === 'proveedor' ? 'Deducido del proveedor'
+                     : r.origen_plazo === 'a mano'    ? ('Lo puso ' + (r.plazo_puesto_por || 'Raul')
+                                                         + (r.plazo_puesto_el ? ' el ' + r.plazo_puesto_el : ''))
                      : r.origen_plazo === 'factura'   ? 'La factura'
                      : r.origen_plazo === 'variable'  ? 'El proveedor varia'
                      : '',

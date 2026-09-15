@@ -103,6 +103,8 @@ async function precargarCatalogos() {
 }
 
 // ── SUBPESTAÑAS ───────────────────────────────────────
+// 'saldos' ya no tiene boton: vive en la pantalla "Por pagar". La
+// funcion se deja por si algo la llama, pero no se ofrece.
 function comprasVista(cual, btn) {
   ['lista', 'nueva', 'precios', 'saldos', 'conc'].forEach(v => {
     document.getElementById('cmp-' + v)?.classList.add('hidden');
