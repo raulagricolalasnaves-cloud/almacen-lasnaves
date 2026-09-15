@@ -123,8 +123,20 @@
 
   <main class="main">
 
-    <!-- DASHBOARD -->
-    <section id="tab-dashboard" class="tab active">
+    <!-- HOY · lo que me toca -->
+    <section id="tab-hoy" class="tab active">
+      <div class="page-header">
+        <div class="page-title">Hoy</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="page-date" id="hoy-fecha"></div>
+          <button class="btn btn-sm" onclick="cargarHoy()">&#8635; Actualizar</button>
+        </div>
+      </div>
+      <div id="hoy-cuerpo"><div class="loading">Cargando...</div></div>
+    </section>
+
+    <!-- DASHBOARD · reemplazado por Hoy, se conserva por si acaso -->
+    <section id="tab-dashboard" class="tab hidden">
       <div class="page-header">
         <div class="page-title">Dashboard</div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -565,11 +577,19 @@
       <div class="card">
         <div class="sol-drop">
           <input type="file" id="sol-file" accept=".xlsx,.xls" style="display:none" onchange="solArchivo(this)">
-          <button class="btn btn-primary" onclick="document.getElementById('sol-file').click()">Elegir el Excel del Ing. Miguel</button>
-          <p>Viene en matriz &mdash; productos abajo, ranchos a lo ancho &mdash; y se desdobla solo.
+          <div class="sol-drop-btns">
+            <button class="btn btn-primary" onclick="document.getElementById('sol-file').click()">Importar Excel</button>
+            <button class="btn" onclick="solManual()">Meter a mano</button>
+          </div>
+          <p>Si viene en matriz &mdash; productos abajo, ranchos a lo ancho &mdash; se desdobla solo.
              Las columnas se empatan por el nombre del encabezado, no por su posici&oacute;n.</p>
         </div>
         <div id="sol-cuerpo" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="card-header">Lo que pedí &mdash; pedido &middot; lleg&oacute; &middot; entregado</div>
+        <div id="sol-libreta"><div class="loading">Cargando...</div></div>
       </div>
 
       <div class="card" style="margin-top:12px">
@@ -585,7 +605,9 @@
       <button class="btn btn-sm subtab active" onclick="comprasVista('lista',this)">Compras</button>
       <button class="btn btn-sm subtab" onclick="comprasVista('nueva',this)">+ Nueva compra</button>
       <button class="btn btn-sm subtab" onclick="comprasVista('precios',this)">Precios por confirmar</button>
-      <button class="btn btn-sm subtab" onclick="comprasVista('saldos',this)">Saldos por pagar</button>
+      <!-- "Saldos por pagar" se quito de aqui el 11-sep-2026: duplicaba la
+           pantalla "Por pagar", que es la de la contadora. Capturar una
+           factura y pagarla son dos trabajos de dos personas distintas. -->
       <button class="btn btn-sm subtab" onclick="comprasVista('conc',this)">Conciliación</button>
     </div>
 
@@ -901,6 +923,9 @@
 <script src="src/lib/ficha.js"></script>
 <script src="src/lib/reparto.js"></script>
 <script src="src/lib/cxp.js"></script>
+<script src="src/lib/libreta.js"></script>
+<script src="src/lib/hoy.js"></script>
+<script src="src/lib/nav.js"></script>
 <script src="src/lib/tema.js"></script>
 </body>
 </html>
